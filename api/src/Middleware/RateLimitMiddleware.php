@@ -55,7 +55,9 @@ final class RateLimitMiddleware implements MiddlewareInterface
         $keys = $this->buildKeys($this->profile, $request);
 
         foreach ($keys as $key) {
-            $item = $cache->getItem($key);
+            // PSR-6 no permite ':' en cache keys → reemplazamos por '.'
+            $safeKey = strtr($key, [':' => '.', '/' => '.', '\\' => '.', '{' => '_', '}' => '_', '(' => '_', ')' => '_', '@' => '.']);
+            $item = $cache->getItem($safeKey);
             $data = $item->get() ?? ['count' => 0, 'reset_at' => time() + $window];
 
             // Reiniciar ventana si expiró

@@ -44,6 +44,10 @@ final class App
         $container = $this->buildContainer($settings);
         ContainerProvider::set($container);
 
+        // 5b. Booteo eager de Eloquent (setAsGlobal) para que los modelos funcionen
+        // en cualquier punto del ciclo de request sin necesidad de inyectar Capsule.
+        $container->get(\Illuminate\Database\Capsule\Manager::class);
+
         // 6. Crear app Slim
         AppFactory::setContainer($container);
         $app = AppFactory::create();

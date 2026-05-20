@@ -8,6 +8,9 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Capsule\Manager as Capsule;
+use ITHub\Api\Services\AuditoriaService;
+use ITHub\Api\Services\AuthService;
+use ITHub\Api\Services\JwtService;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -63,9 +66,8 @@ return [
         $logger->pushProcessor(new UidProcessor(8));
         $logger->pushProcessor(new PsrLogMessageProcessor());
         // Filtro de PII (custom processor) – ofuscamos email, cuit y secretos
-        $logger->pushProcessor(static function (array $record): array {
-            $record['context'] = \ITHub\Api\Support\PiiFilter::filter($record['context'] ?? []);
-            return $record;
+        $logger->pushProcessor(static function (\Monolog\LogRecord $record): \Monolog\LogRecord {
+            return $record->with(context: \ITHub\Api\Support\PiiFilter::filter($record->context));
         });
 
         return $logger;
@@ -90,7 +92,22 @@ return [
     },
 
     // ============================================================
-    // Servicios y repositorios se registrarán acá a medida que se creen
-    // (Auth, Drive, Mail, etc.)
+    // Servicios de auth y auditoría
     // ============================================================
+    JwtService::class => function (ContainerInterface $c): JwtService {
+        return new JwtService($c);
+    },
+
+    AuditoriaService::class => function (): AuditoriaService {
+        return new AuditoriaService();
+    },
+
+    AuthService::class => function (ContainerInterface $c): AuthService {
+        return new AuthService(
+            $c,
+            $c->get(JwtService::class),
+            $c->get(AuditoriaService::class),
+            $c->get(LoggerInterface::class)
+        );
+    },
 ];
