@@ -1,0 +1,83 @@
+# ============================================================
+# ITHub - .gitignore raíz del monorepo
+# ============================================================
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-*
+.fleet/
+
+# Logs
+*.log
+logs/
+
+# Entornos
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Credenciales / secretos (NUNCA commitear)
+*.pem
+*.key
+*.p12
+*.pfx
+credentials/
+storage/credentials/
+service-account*.json
+!service-account.example.json
+
+# ============================================================
+# Backend PHP (api/)
+# ============================================================
+api/vendor/
+api/storage/logs/*
+!api/storage/logs/.gitkeep
+api/storage/cache/*
+!api/storage/cache/.gitkeep
+api/storage/exports/*
+!api/storage/exports/.gitkeep
+api/storage/imports/*
+!api/storage/imports/.gitkeep
+api/storage/ratelimit/*
+!api/storage/ratelimit/.gitkeep
+api/storage/credentials/*
+!api/storage/credentials/.gitkeep
+api/coverage/
+api/.phpunit.result.cache
+api/.php-cs-fixer.cache
+
+# ============================================================
+# Frontend Next.js (web/)
+# ============================================================
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/dist/
+web/.turbo/
+web/coverage/
+web/*.tsbuildinfo
+web/.eslintcache
+
+# ============================================================
+# Docker / dev
+# ============================================================
+docker/data/
+docker/mysql-data/
+
+# ============================================================
+# Backups
+# ============================================================
+backups/
+*.sql.gz
+*.sql.gpg

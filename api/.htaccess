@@ -1,0 +1,10 @@
+# ============================================================
+# Bloqueo total a nivel raíz del API.
+# Si por error Hostinger sirve este dir, nada queda accesible.
+# El document root DEBE apuntar a /public.
+# ============================================================
+Require all denied
+
+<FilesMatch "^(robots\.txt|favicon\.ico)$">
+    Require all granted
+</FilesMatch>

@@ -1,0 +1,112 @@
+name: ithub
+
+services:
+  # ----------------------------------------------------------
+  # MySQL 8.0 (mismo motor que Hostinger)
+  # ----------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: ithub-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-ithub}
+      MYSQL_USER: ${DB_USER:-ithub}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-ithubpass}
+      TZ: America/Argentina/Buenos_Aires
+    command:
+      - --default-authentication-plugin=caching_sha2_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=-03:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ithub-net
+
+  # ----------------------------------------------------------
+  # Adminer (UI para inspeccionar la DB en dev)
+  # ----------------------------------------------------------
+  adminer:
+    image: adminer:latest
+    container_name: ithub-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    networks:
+      - ithub-net
+
+  # ----------------------------------------------------------
+  # PHP 8.2 + Apache (entorno de desarrollo)
+  # En producción Hostinger ya provee Apache+PHP.
+  # ----------------------------------------------------------
+  api:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: ithub-api
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+    ports:
+      - "8080:80"
+    volumes:
+      - ./api:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ithub-net
+
+  # ----------------------------------------------------------
+  # Node 20 para el frontend (modo dev con HMR)
+  # ----------------------------------------------------------
+  web:
+    image: node:20-alpine
+    container_name: ithub-web
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app
+      - web-node-modules:/app/node_modules
+    depends_on:
+      - api
+    networks:
+      - ithub-net
+
+  # ----------------------------------------------------------
+  # MailHog (captura mails locales para probar notificaciones)
+  # ----------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ithub-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - ithub-net
+
+volumes:
+  mysql-data:
+  web-node-modules:
+
+networks:
+  ithub-net:
+    driver: bridge

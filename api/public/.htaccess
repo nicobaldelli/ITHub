@@ -1,0 +1,63 @@
+# ============================================================
+# ITHub API - Apache config for public/
+# Front controller pattern + security hardening
+# ============================================================
+
+# Asegurar HTTPS (Hostinger ya lo fuerza pero defensa en profundidad)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Front controller: cualquier ruta que no sea un archivo/directorio real → index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Ocultar archivos sensibles si llegaran a copiarse a public/ por error
+<FilesMatch "(^\.|\.env|\.git|\.htaccess|composer\.|phinx\.|\.md$|\.log$)">
+    Require all denied
+</FilesMatch>
+
+# Deshabilitar listado de directorios
+Options -Indexes -MultiViews +FollowSymLinks
+
+# Cabeceras de seguridad
+<IfModule mod_headers.c>
+    # Removidas
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+
+    # Defense
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Cross-Origin-Resource-Policy "same-site"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
+</IfModule>
+
+# Comprimir respuestas
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json application/javascript text/css text/plain text/html
+</IfModule>
+
+# Pasar Authorization header (algunos hosts lo bloquean)
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+</IfModule>
+
+# Charset por defecto
+AddDefaultCharset UTF-8
+
+# No servir archivos PHP fuera del index
+<FilesMatch "\.ph(p[0-9]?|tml|ar)$">
+    <If "%{REQUEST_URI} !~ m#^/index\.php$#">
+        Require all denied
+    </If>
+</FilesMatch>

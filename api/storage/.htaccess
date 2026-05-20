@@ -1,0 +1,3 @@
+# Bloqueo total del directorio storage.
+# Si Apache lo sirviera por error, nada queda accesible (defensa en profundidad).
+Require all denied
