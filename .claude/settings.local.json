@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); docker --version 2>&1; Write-Output \"---\"; docker compose version 2>&1; Write-Output \"---\"; docker ps 2>&1)"
+    ]
+  }
+}

@@ -16,7 +16,8 @@ final class CreateClientesTable extends AbstractMigration
             'ND_A', 'ND_B', 'ND_E',
         ];
 
-        $this->table('clientes', ['signed' => false, 'id' => 'id'])
+        $this->table('clientes', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('razon_social', 'string', ['limit' => 200])
             ->addColumn('cuit', 'string', ['limit' => 13])
             ->addColumn('cuit_pais', 'string', ['limit' => 20, 'null' => true])

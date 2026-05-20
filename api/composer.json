@@ -18,7 +18,7 @@
         "illuminate/database": "^10.40",
         "illuminate/events": "^10.40",
         "vlucas/phpdotenv": "^5.6",
-        "firebase/php-jwt": "^6.10",
+        "firebase/php-jwt": "^7.0",
         "respect/validation": "^2.3",
         "monolog/monolog": "^3.5",
         "ramsey/uuid": "^4.7",
@@ -55,15 +55,22 @@
         "migrate": "phinx migrate -c db/phinx.php",
         "migrate:rollback": "phinx rollback -c db/phinx.php",
         "seed": "phinx seed:run -c db/phinx.php",
-        "audit": "composer audit"
+        "audit": "composer audit",
+        "post-update-cmd": "Google\\Task\\Composer::cleanup"
     },
     "config": {
         "sort-packages": true,
         "optimize-autoloader": true,
         "preferred-install": "dist",
+        "process-timeout": 900,
         "allow-plugins": {
             "php-http/discovery": true
         }
+    },
+    "extra": {
+        "google/apiclient-services": [
+            "Drive"
+        ]
     },
     "minimum-stability": "stable",
     "prefer-stable": true

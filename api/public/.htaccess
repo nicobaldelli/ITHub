@@ -4,8 +4,11 @@
 # ============================================================
 
 # Asegurar HTTPS (Hostinger ya lo fuerza pero defensa en profundidad)
+# Se omite la redirección en localhost para permitir desarrollo local sin TLS.
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$ [NC]
+    RewriteCond %{HTTP_HOST} !^127\. [NC]
     RewriteCond %{HTTPS} !=on
     RewriteCond %{HTTP:X-Forwarded-Proto} !=https
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

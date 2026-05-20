@@ -8,7 +8,8 @@ final class CreateRefreshTokensTable extends AbstractMigration
 {
     public function change(): void
     {
-        $this->table('refresh_tokens', ['signed' => false, 'id' => 'id'])
+        $this->table('refresh_tokens', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('user_id', 'biginteger', ['signed' => false])
             ->addColumn('token_hash', 'char', ['limit' => 64, 'comment' => 'SHA-256 hex del refresh'])
             ->addColumn('family_id', 'char', ['limit' => 36, 'comment' => 'UUID v4 que agrupa familia de tokens rotados'])

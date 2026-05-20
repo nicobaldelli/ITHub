@@ -10,7 +10,7 @@ final class CreateConfigAppTable extends AbstractMigration
     public function change(): void
     {
         $this->table('config_app', ['id' => false, 'primary_key' => ['clave']])
-            ->addColumn('clave', 'string', ['limit' => 100])
+            ->addColumn('clave', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('valor', 'text', ['null' => true, 'limit' => MysqlAdapter::TEXT_LONG])
             ->addColumn('tipo', 'enum', ['values' => ['string', 'int', 'bool', 'json'], 'default' => 'string'])
             ->addColumn('descripcion', 'string', ['limit' => 255, 'null' => true])

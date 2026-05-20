@@ -70,6 +70,7 @@ services:
 
   # ----------------------------------------------------------
   # Node 20 para el frontend (modo dev con HMR)
+  # Se activa con: docker compose --profile frontend up -d
   # ----------------------------------------------------------
   web:
     image: node:20-alpine
@@ -89,6 +90,8 @@ services:
       - api
     networks:
       - ithub-net
+    profiles:
+      - frontend
 
   # ----------------------------------------------------------
   # MailHog (captura mails locales para probar notificaciones)

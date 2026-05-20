@@ -8,7 +8,8 @@ final class CreateUsersTable extends AbstractMigration
 {
     public function change(): void
     {
-        $this->table('users', ['signed' => false, 'id' => 'id'])
+        $this->table('users', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('nombre', 'string', ['limit' => 100])
             ->addColumn('apellido', 'string', ['limit' => 100])
             ->addColumn('email', 'string', ['limit' => 150])

@@ -14,9 +14,18 @@ use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
 use Monolog\Processor\UidProcessor;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Slim\Psr7\Factory\ResponseFactory as SlimResponseFactory;
 
 return [
+
+    // ============================================================
+    // PSR-17 Response factory (necesario para varios middlewares)
+    // ============================================================
+    ResponseFactoryInterface::class => function (): ResponseFactoryInterface {
+        return new SlimResponseFactory();
+    },
 
     // ============================================================
     // Logging (Monolog con rotación diaria + filtro de PII)

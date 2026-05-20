@@ -9,7 +9,8 @@ final class CreateAuditoriaTable extends AbstractMigration
 {
     public function change(): void
     {
-        $this->table('auditoria', ['signed' => false, 'id' => 'id'])
+        $this->table('auditoria', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('user_id', 'biginteger', ['signed' => false, 'null' => true])
             ->addColumn('entidad', 'string', ['limit' => 50])
             ->addColumn('entidad_id', 'biginteger', ['signed' => false, 'null' => true])

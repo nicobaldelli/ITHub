@@ -16,7 +16,8 @@ final class CreateFacturasVentaTable extends AbstractMigration
             'ND_A', 'ND_B', 'ND_E',
         ];
 
-        $this->table('facturas_venta', ['signed' => false, 'id' => 'id'])
+        $this->table('facturas_venta', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('numero_factura', 'string', ['limit' => 50])
             ->addColumn('cliente_id', 'biginteger', ['signed' => false])
             ->addColumn('tipo', 'enum', ['values' => $tiposFactura])

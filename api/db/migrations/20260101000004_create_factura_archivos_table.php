@@ -8,7 +8,8 @@ final class CreateFacturaArchivosTable extends AbstractMigration
 {
     public function change(): void
     {
-        $this->table('factura_archivos', ['signed' => false, 'id' => 'id'])
+        $this->table('factura_archivos', ['id' => false, 'primary_key' => ['id']])
+            ->addColumn('id', 'biginteger', ['identity' => true, 'signed' => false])
             ->addColumn('factura_id', 'biginteger', ['signed' => false])
             ->addColumn('drive_file_id', 'string', ['limit' => 100])
             ->addColumn('nombre_archivo', 'string', ['limit' => 255])
