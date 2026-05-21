@@ -177,6 +177,201 @@ final class ServicioService
         });
     }
 
+    // ============================================================
+    // ACCIONES DE ESTADO
+    // ============================================================
+
+    public function pausar(int $id, User $user, ServerRequestInterface $request): Servicio
+    {
+        $servicio = $this->repo->findById($id);
+        if ($servicio === null) {
+            throw new NotFoundException('Servicio no encontrado');
+        }
+        if ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
+            throw new ValidationException(
+                'Solo se pueden pausar servicios activos',
+                ['estado_actual' => $servicio->estado]
+            );
+        }
+        $servicio->estado = Servicio::ESTADO_PAUSADO;
+        $servicio->pausado_at = date('Y-m-d H:i:s');
+        $servicio->updated_by = $user->id;
+        $servicio->save();
+
+        $this->audit->log($user->id, 'servicio', $servicio->id, Auditoria::ACCION_EDITAR,
+            ['accion' => 'pausado'], $request);
+
+        return $servicio->fresh();
+    }
+
+    /**
+     * Reanuda un servicio pausado.
+     * Modos:
+     *  - 'cancelar_pasadas' (default): cuotas con fecha_prevista < hoy → canceladas
+     *  - 'correr_cronograma': suma días pausados a cuotas pendientes y a fecha_fin
+     */
+    public function reanudar(int $id, string $modo, User $user, ServerRequestInterface $request): Servicio
+    {
+        $servicio = $this->repo->findById($id);
+        if ($servicio === null) {
+            throw new NotFoundException('Servicio no encontrado');
+        }
+        if ($servicio->estado !== Servicio::ESTADO_PAUSADO) {
+            throw new ValidationException('Solo se pueden reanudar servicios pausados',
+                ['estado_actual' => $servicio->estado]);
+        }
+        if (!in_array($modo, ['cancelar_pasadas', 'correr_cronograma'], true)) {
+            throw new ValidationException('Modo de reanudación inválido',
+                ['modo' => 'cancelar_pasadas | correr_cronograma']);
+        }
+
+        $pausadoAt = $servicio->pausado_at;
+        $diasPausados = $pausadoAt
+            ? max(0, (int) round((time() - $pausadoAt->getTimestamp()) / 86400))
+            : 0;
+
+        Capsule::connection()->transaction(function () use ($servicio, $modo, $diasPausados, $user, $request) {
+            $hoy = date('Y-m-d');
+
+            if ($modo === 'cancelar_pasadas') {
+                ServicioCuota::where('servicio_id', $servicio->id)
+                    ->where('estado', ServicioCuota::ESTADO_PENDIENTE)
+                    ->where('fecha_prevista', '<', $hoy)
+                    ->update(['estado' => ServicioCuota::ESTADO_CANCELADA]);
+            } else {
+                if ($diasPausados > 0) {
+                    $cuotasPendientes = ServicioCuota::where('servicio_id', $servicio->id)
+                        ->where('estado', ServicioCuota::ESTADO_PENDIENTE)
+                        ->get();
+                    foreach ($cuotasPendientes as $c) {
+                        $c->fecha_prevista = date('Y-m-d',
+                            strtotime($c->fecha_prevista->format('Y-m-d') . " + {$diasPausados} days"));
+                        $c->save();
+                    }
+                    if ($servicio->fecha_fin !== null) {
+                        $servicio->fecha_fin = date('Y-m-d',
+                            strtotime($servicio->fecha_fin->format('Y-m-d') . " + {$diasPausados} days"));
+                    }
+                }
+            }
+
+            $servicio->estado = Servicio::ESTADO_ACTIVO;
+            $servicio->pausado_at = null;
+            $servicio->updated_by = $user->id;
+            $servicio->save();
+
+            $this->audit->log($user->id, 'servicio', $servicio->id, Auditoria::ACCION_EDITAR,
+                ['accion' => 'reanudado', 'modo' => $modo, 'dias_pausados' => $diasPausados],
+                $request);
+        });
+
+        return $servicio->fresh();
+    }
+
+    public function cancelar(int $id, User $user, ServerRequestInterface $request): Servicio
+    {
+        $servicio = $this->repo->findById($id);
+        if ($servicio === null) {
+            throw new NotFoundException('Servicio no encontrado');
+        }
+        if (in_array($servicio->estado, [Servicio::ESTADO_CANCELADO, Servicio::ESTADO_COMPLETADO], true)) {
+            throw new ValidationException('El servicio ya está finalizado',
+                ['estado_actual' => $servicio->estado]);
+        }
+
+        Capsule::connection()->transaction(function () use ($servicio, $user, $request) {
+            ServicioCuota::where('servicio_id', $servicio->id)
+                ->where('estado', ServicioCuota::ESTADO_PENDIENTE)
+                ->update(['estado' => ServicioCuota::ESTADO_CANCELADA]);
+
+            $servicio->estado = Servicio::ESTADO_CANCELADO;
+            $servicio->updated_by = $user->id;
+            $servicio->save();
+
+            $this->audit->log($user->id, 'servicio', $servicio->id, Auditoria::ACCION_EDITAR,
+                ['accion' => 'cancelado'], $request);
+        });
+
+        return $servicio->fresh();
+    }
+
+    /**
+     * Extiende un mantenimiento (`meses` o `nueva_fecha_fin`) y genera las cuotas adicionales.
+     * Si era indefinido, ahora pasa a tener fecha_fin = hoy + meses.
+     * `nuevo_importe_base` opcional (renegociación de tarifa al extender).
+     */
+    public function extender(int $id, array $data, User $user, ServerRequestInterface $request): Servicio
+    {
+        $servicio = $this->repo->findById($id);
+        if ($servicio === null) {
+            throw new NotFoundException('Servicio no encontrado');
+        }
+        if (!$servicio->esMantenimiento()) {
+            throw new ValidationException('Solo se pueden extender servicios de mantenimiento',
+                ['tipo' => 'solo mantenimiento']);
+        }
+        if ($servicio->estado !== Servicio::ESTADO_ACTIVO) {
+            throw new ValidationException('Solo se pueden extender servicios activos',
+                ['estado_actual' => $servicio->estado]);
+        }
+
+        $meses = isset($data['meses']) ? (int) $data['meses'] : 0;
+        $nuevaFin = !empty($data['nueva_fecha_fin']) ? (string) $data['nueva_fecha_fin'] : null;
+        if ($meses <= 0 && $nuevaFin === null) {
+            throw new ValidationException(
+                'Pasá `meses` (entero positivo) o `nueva_fecha_fin` (YYYY-MM-DD)',
+                ['meses' => 'requerido']
+            );
+        }
+
+        if ($nuevaFin !== null) {
+            $servicio->fecha_fin = $nuevaFin;
+        } else {
+            $base = $servicio->fecha_fin?->format('Y-m-d') ?? date('Y-m-d');
+            $servicio->fecha_fin = date('Y-m-d', strtotime("{$base} + {$meses} months"));
+        }
+
+        if (isset($data['nuevo_importe_base']) && is_numeric($data['nuevo_importe_base'])) {
+            $servicio->importe_base = (float) $data['nuevo_importe_base'];
+        }
+
+        Capsule::connection()->transaction(function () use ($servicio, $user, $request) {
+            $servicio->updated_by = $user->id;
+            $servicio->save();
+
+            $maxNumero = (int) (ServicioCuota::where('servicio_id', $servicio->id)->max('numero_cuota') ?? 0);
+            $ultimaResuelta = ServicioCuota::where('servicio_id', $servicio->id)
+                ->whereIn('estado', ServicioCuota::ESTADOS_RESUELTOS)
+                ->max('fecha_prevista');
+
+            ServicioCuota::where('servicio_id', $servicio->id)
+                ->where('estado', ServicioCuota::ESTADO_PENDIENTE)
+                ->delete();
+
+            $virtual = clone $servicio;
+            if ($ultimaResuelta) {
+                $virtual->fecha_inicio = date('Y-m-d', strtotime($ultimaResuelta . ' + 1 day'));
+            }
+
+            $nuevas = CronogramaGenerator::generar($virtual);
+            foreach ($nuevas as $i => $c) {
+                $c['numero_cuota'] = $maxNumero + $i + 1;
+                $c['servicio_id'] = $servicio->id;
+                ServicioCuota::create($c);
+            }
+
+            $this->audit->log($user->id, 'servicio', $servicio->id, Auditoria::ACCION_EDITAR,
+                [
+                    'accion' => 'extendido',
+                    'nueva_fecha_fin' => $servicio->fecha_fin?->format('Y-m-d'),
+                    'cuotas_nuevas' => count($nuevas),
+                ],
+                $request);
+        });
+
+        return $servicio->fresh(['cuotas']);
+    }
+
     public function delete(int $id, User $user, ServerRequestInterface $request): void
     {
         $servicio = $this->repo->findById($id);

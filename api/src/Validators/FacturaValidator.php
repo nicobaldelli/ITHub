@@ -178,6 +178,10 @@ final class FacturaValidator
         if (array_key_exists('cliente_id', $data)) {
             $clean['cliente_id'] = (int) $data['cliente_id'];
         }
+        if (array_key_exists('servicio_cuota_id', $data)) {
+            $clean['servicio_cuota_id'] = $data['servicio_cuota_id'] === null || $data['servicio_cuota_id'] === ''
+                ? null : (int) $data['servicio_cuota_id'];
+        }
         foreach (['importe_sin_iva', 'importe_con_iva', 'importe_total_pesos', 'retenciones', 'total_cobrado', 'tdc'] as $f) {
             if (array_key_exists($f, $data)) {
                 $clean[$f] = ($data[$f] === null || $data[$f] === '') ? null : (float) $data[$f];

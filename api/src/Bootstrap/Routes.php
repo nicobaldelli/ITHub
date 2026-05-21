@@ -86,6 +86,26 @@ final class Routes
             $g->delete('/servicios/{id:[0-9]+}', [ServiciosController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
 
+            // Acciones de estado del servicio
+            $g->patch('/servicios/{id:[0-9]+}/pausar', [ServiciosController::class, 'pausar'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->patch('/servicios/{id:[0-9]+}/reanudar', [ServiciosController::class, 'reanudar'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->patch('/servicios/{id:[0-9]+}/cancelar', [ServiciosController::class, 'cancelar'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->post('/servicios/{id:[0-9]+}/extender', [ServiciosController::class, 'extender'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+
+            // Acciones sobre cuotas del cronograma
+            $g->patch('/servicios/{id:[0-9]+}/cuotas/{cid:[0-9]+}', [ServiciosController::class, 'editarCuota'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->patch('/servicios/{id:[0-9]+}/cuotas/{cid:[0-9]+}/omitir', [ServiciosController::class, 'omitirCuota'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->patch('/servicios/{id:[0-9]+}/cuotas/{cid:[0-9]+}/cancelar', [ServiciosController::class, 'cancelarCuota'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/servicios/{id:[0-9]+}/cuotas/{cid:[0-9]+}/facturar', [ServiciosController::class, 'facturarCuota'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+
             // ----- Dashboard -----
             $g->get('/dashboard/kpis', [DashboardController::class, 'kpis']);
             $g->get('/dashboard/tendencias', [DashboardController::class, 'tendencias']);

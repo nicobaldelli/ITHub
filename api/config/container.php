@@ -17,6 +17,7 @@ use ITHub\Api\Services\ClienteService;
 use ITHub\Api\Services\DashboardService;
 use ITHub\Api\Services\FacturaService;
 use ITHub\Api\Services\JwtService;
+use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
@@ -148,6 +149,10 @@ return [
     ServicioRepository::class => fn () => new ServicioRepository(),
     ServicioService::class => fn (ContainerInterface $c) => new ServicioService(
         $c->get(ServicioRepository::class),
+        $c->get(AuditoriaService::class)
+    ),
+    ServicioCuotaService::class => fn (ContainerInterface $c) => new ServicioCuotaService(
+        $c->get(FacturaService::class),
         $c->get(AuditoriaService::class)
     ),
 ];
