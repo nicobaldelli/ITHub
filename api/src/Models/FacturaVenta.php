@@ -119,6 +119,7 @@ final class FacturaVenta extends Model
         'check_cobranza_fecha',
         'drive_folder_id',
         'estado',
+        'servicio_cuota_id',
         'created_by',
         'updated_by',
     ];
@@ -140,6 +141,7 @@ final class FacturaVenta extends Model
         'check_cobranza' => 'boolean',
         'check_cobranza_user_id' => 'integer',
         'check_cobranza_fecha' => 'datetime',
+        'servicio_cuota_id' => 'integer',
         'created_by' => 'integer',
         'updated_by' => 'integer',
         'created_at' => 'datetime',
@@ -165,5 +167,10 @@ final class FacturaVenta extends Model
     public function archivos(): HasMany
     {
         return $this->hasMany(FacturaArchivo::class, 'factura_id');
+    }
+
+    public function servicioCuota(): BelongsTo
+    {
+        return $this->belongsTo(ServicioCuota::class, 'servicio_cuota_id');
     }
 }

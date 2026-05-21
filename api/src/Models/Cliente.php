@@ -69,4 +69,9 @@ final class Cliente extends Model
     {
         return $this->hasMany(FacturaVenta::class, 'cliente_id');
     }
+
+    public function servicios(): HasMany
+    {
+        return $this->hasMany(Servicio::class, 'cliente_id');
+    }
 }
