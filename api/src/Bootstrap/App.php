@@ -88,7 +88,9 @@ final class App
     {
         $builder = new ContainerBuilder();
 
-        if ($settings['app']['is_production']) {
+        // Solo compilamos el container en producción. En local los cambios en
+        // container.php se reflejan inmediatamente.
+        if ($settings['app']['env'] === 'production') {
             $cacheDir = $this->basePath . '/' . $settings['storage']['cache'];
             if (!is_dir($cacheDir)) {
                 @mkdir($cacheDir, 0750, true);

@@ -1,0 +1,254 @@
+{
+  "info": {
+    "name": "ITHub API",
+    "description": "Collection para probar la API de ITHub en local.\n\n## Setup\n1. Importá esta collection\n2. Verificá que las variables `base_url`, `email`, `password` estén bien\n3. Corré los requests en orden: Health → Login → Me → ...\n\nLos scripts en `Tests` guardan automáticamente `access_token` y `csrf_token` en las variables de la collection.\n\n## Cookies\nPostman maneja las cookies automáticamente. La cookie `ithub_refresh` se guarda al hacer login y se envía sola en refresh/logout.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "email", "value": "nbaldelli@intellihelp.tech", "type": "string" },
+    { "key": "password", "value": "MiPwSegura2026!", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "csrf_token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+        "description": "Endpoint público. Devuelve status de la app y conectividad de DB."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('DB up', () => pm.expect(pm.response.json().data.db).to.eql('up'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+        "description": "Login con email+password. Guarda access_token y csrf_token en las variables de la collection.\n\nLa cookie ithub_refresh (HttpOnly) se guarda automáticamente en Postman.\n\nSi el usuario tiene must_change_password=true, hay que llamar a 'Change password' antes de seguir."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login OK', () => pm.response.to.have.status(200));",
+              "",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('access_token', json.data.access_token);",
+              "pm.collectionVariables.set('csrf_token', json.data.csrf_token);",
+              "",
+              "console.log('access_token guardado');",
+              "console.log('access_token expira en:', new Date(json.data.access_expires_at * 1000).toLocaleString());",
+              "console.log('must_change_password:', json.data.user.must_change_password);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Me (usuario actual)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] },
+        "description": "Devuelve el usuario autenticado. Requiere Bearer token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Email coincide', () => pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('email')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Refresh (rota tokens)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrf_token}}" }
+        ],
+        "url": { "raw": "{{base_url}}/auth/refresh", "host": ["{{base_url}}"], "path": ["auth", "refresh"] },
+        "description": "Rota el refresh token y emite un nuevo access. Lee la cookie ithub_refresh (HttpOnly, manejada automáticamente por Postman).\n\nRequiere el header X-CSRF-Token que coincida con la cookie ithub_csrf (double-submit pattern).\n\nSi se reusa un refresh ya revocado, invalida toda la familia (detección de robo)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Refresh OK', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('access_token', json.data.access_token);",
+              "console.log('Nuevo access_token guardado, expira en:', new Date(json.data.access_expires_at * 1000).toLocaleString());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Change password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"MiNuevaPwSegura2026!\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/auth/change-password", "host": ["{{base_url}}"], "path": ["auth", "change-password"] },
+        "description": "Cambia el password del usuario autenticado.\n\nSi must_change_password=true, el campo current_password se ignora (cambio forzado).\n\nDespués del cambio, TODOS los refresh tokens se revocan y hay que hacer login con el nuevo password."
+      }
+    },
+    {
+      "name": "6. Logout (sesión actual)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrf_token}}" }
+        ],
+        "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] },
+        "description": "Revoca el refresh token actual. La cookie se limpia. El access sigue siendo válido hasta que expire (15 min)."
+      }
+    },
+    {
+      "name": "7. Logout all (todas las sesiones)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "url": { "raw": "{{base_url}}/auth/logout-all", "host": ["{{base_url}}"], "path": ["auth", "logout-all"] },
+        "description": "Revoca TODOS los refresh tokens del usuario (cierra sesiones en todos los dispositivos)."
+      }
+    },
+    {
+      "name": "🔴 Test seguridad: Login mal password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"incorrecto\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+        "description": "Debería devolver 401 con mensaje genérico 'Credenciales inválidas' (NO revela si el email existe)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401', () => pm.response.to.have.status(401));",
+              "pm.test('Mensaje generico', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔴 Test seguridad: Me sin token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] },
+        "description": "Debería devolver 401 MISSING_TOKEN."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔴 Test seguridad: Me con token falso",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer fakefakefake" }
+        ],
+        "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] },
+        "description": "Debería devolver 401 TOKEN_INVALID."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 401', () => pm.response.to.have.status(401));",
+              "pm.test('Codigo TOKEN_INVALID', () => pm.expect(pm.response.json().error.code).to.eql('TOKEN_INVALID'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔴 Test seguridad: Password debil en change",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"abc\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/auth/change-password", "host": ["{{base_url}}"], "path": ["auth", "change-password"] },
+        "description": "Debería devolver 422 con la lista de reglas de complejidad no cumplidas."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Devuelve 422', () => pm.response.to.have.status(422));",
+              "pm.test('Codigo VALIDATION_ERROR', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

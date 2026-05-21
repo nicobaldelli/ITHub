@@ -8,8 +8,13 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Capsule\Manager as Capsule;
+use ITHub\Api\Repositories\ClienteRepository;
+use ITHub\Api\Repositories\FacturaRepository;
 use ITHub\Api\Services\AuditoriaService;
 use ITHub\Api\Services\AuthService;
+use ITHub\Api\Services\ClienteService;
+use ITHub\Api\Services\DashboardService;
+use ITHub\Api\Services\FacturaService;
 use ITHub\Api\Services\JwtService;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
@@ -110,4 +115,28 @@ return [
             $c->get(LoggerInterface::class)
         );
     },
+
+    // ============================================================
+    // Clientes
+    // ============================================================
+    ClienteRepository::class => fn () => new ClienteRepository(),
+    ClienteService::class => fn (ContainerInterface $c) => new ClienteService(
+        $c->get(ClienteRepository::class),
+        $c->get(AuditoriaService::class)
+    ),
+
+    // ============================================================
+    // Facturas
+    // ============================================================
+    FacturaRepository::class => fn () => new FacturaRepository(),
+    FacturaService::class => fn (ContainerInterface $c) => new FacturaService(
+        $c->get(FacturaRepository::class),
+        $c->get(ClienteRepository::class),
+        $c->get(AuditoriaService::class)
+    ),
+
+    // ============================================================
+    // Dashboard
+    // ============================================================
+    DashboardService::class => fn () => new DashboardService(),
 ];
