@@ -70,6 +70,7 @@ services:
 
   # ----------------------------------------------------------
   # Node 20 para el frontend (modo dev con HMR)
+  # Usa pnpm via corepack (mejor integridad de lockfile + sin phantom deps).
   # Se activa con: docker compose --profile frontend up -d
   # ----------------------------------------------------------
   web:
@@ -80,7 +81,15 @@ services:
     environment:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
-    command: sh -c "npm install && npm run dev"
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    # 1. Activar corepack (viene con Node 20)
+    # 2. Instalar deps con pnpm (frozen-lockfile=false porque puede no existir aun)
+    # 3. Levantar dev server
+    command: >
+      sh -c "corepack enable &&
+             corepack prepare pnpm@9.12.3 --activate &&
+             pnpm install --prefer-frozen-lockfile=false &&
+             pnpm dev"
     ports:
       - "3000:3000"
     volumes:

@@ -1,0 +1,57 @@
+{
+  "name": "ithub-web",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.18",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "axios": "1.7.7",
+    "zustand": "4.5.5",
+    "@tanstack/react-table": "8.20.5",
+    "@tanstack/react-query": "5.59.0",
+    "react-hook-form": "7.53.0",
+    "zod": "3.23.8",
+    "@hookform/resolvers": "3.9.0",
+    "recharts": "2.13.0",
+    "lucide-react": "0.453.0",
+    "date-fns": "3.6.0",
+    "class-variance-authority": "0.7.0",
+    "clsx": "2.1.1",
+    "tailwind-merge": "2.5.4",
+    "sonner": "1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "@types/node": "20.16.11",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "tailwindcss": "3.4.13",
+    "postcss": "8.4.47",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@next/swc-darwin-arm64",
+      "@next/swc-darwin-x64",
+      "@next/swc-linux-x64-gnu",
+      "@next/swc-linux-x64-musl",
+      "@next/swc-win32-x64-msvc",
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

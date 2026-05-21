@@ -1,0 +1,115 @@
+'use client';
+
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+import { useAuthStore } from '@/stores/auth';
+import type { ApiErrorBody, RefreshResponse } from '@/types/api';
+
+/**
+ * Cliente HTTP unificado.
+ *
+ * Garantías:
+ *  - `withCredentials: true` para que viajen las cookies HttpOnly (refresh, csrf)
+ *  - Interceptor de request: pega el `Authorization: Bearer <access>` desde el store
+ *  - Interceptor de response:
+ *      * 401 -> intenta /auth/refresh una sola vez; si OK reintenta la request original;
+ *               si falla, limpia store y dispara evento 'auth:unauthorized' para que la UI redirija
+ *      * 419 / CSRF_INVALID -> mismo flujo (refresh + retry)
+ *      * adjunta el header X-CSRF-Token si está en el store
+ */
+const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
+
+export const api = axios.create({
+  baseURL,
+  withCredentials: true,
+  timeout: 20_000,
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+});
+
+// ----------- Request interceptor -----------
+api.interceptors.request.use((config) => {
+  const { accessToken, csrfToken } = useAuthStore.getState();
+  if (accessToken) {
+    config.headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  // Para endpoints que requieren cookie + CSRF (refresh, logout) mandamos también el header.
+  if (csrfToken) {
+    config.headers.set('X-CSRF-Token', csrfToken);
+  }
+  return config;
+});
+
+// ----------- Response interceptor -----------
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function tryRefresh(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const { csrfToken } = useAuthStore.getState();
+      const headers: Record<string, string> = {};
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+      const resp = await axios.post<{ data: RefreshResponse }>(
+        `${baseURL}/auth/refresh`,
+        {},
+        { withCredentials: true, headers },
+      );
+      const data = resp.data.data;
+      useAuthStore.getState().setSession({
+        user: data.user,
+        accessToken: data.access_token,
+        accessExpiresAt: data.access_expires_at,
+      });
+      return data.access_token;
+    } catch {
+      useAuthStore.getState().clear();
+      // Avisamos a la UI (route guards) que perdimos sesión
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError<ApiErrorBody>) => {
+    const original = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined;
+    const status = error.response?.status;
+    const errorCode = error.response?.data?.error?.code;
+    const isAuthEndpoint =
+      original?.url?.includes('/auth/login') ||
+      original?.url?.includes('/auth/refresh') ||
+      original?.url?.includes('/auth/logout');
+
+    // Retry una sola vez con refresh si el access expiró
+    if (
+      original &&
+      !original._retried &&
+      !isAuthEndpoint &&
+      (status === 401 || (status === 419 && errorCode === 'CSRF_INVALID'))
+    ) {
+      const newAccess = await tryRefresh();
+      if (newAccess) {
+        original._retried = true;
+        original.headers = { ...(original.headers ?? {}), Authorization: `Bearer ${newAccess}` };
+        return api.request(original);
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+/** Convierte el error de Axios al shape de error de la API (o un mensaje genérico). */
+export function apiErrorMessage(err: unknown, fallback = 'Ocurrió un error'): string {
+  if (axios.isAxiosError<ApiErrorBody>(err)) {
+    return err.response?.data?.error?.message ?? err.message ?? fallback;
+  }
+  return fallback;
+}

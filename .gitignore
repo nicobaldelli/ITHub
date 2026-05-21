@@ -68,6 +68,9 @@ web/.turbo/
 web/coverage/
 web/*.tsbuildinfo
 web/.eslintcache
+web/package-lock.json
+web/.pnpm-store/
+# pnpm-lock.yaml SI se commitea (security: integrity hashes)
 
 # ============================================================
 # Docker / dev
