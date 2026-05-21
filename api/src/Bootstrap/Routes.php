@@ -9,6 +9,7 @@ use ITHub\Api\Controllers\ClientesController;
 use ITHub\Api\Controllers\DashboardController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
+use ITHub\Api\Controllers\ServiciosController;
 use ITHub\Api\Middleware\JwtAuthMiddleware;
 use ITHub\Api\Middleware\RateLimitMiddleware;
 use ITHub\Api\Middleware\RoleMiddleware;
@@ -73,6 +74,16 @@ final class Routes
             $g->patch('/facturas/{id:[0-9]+}/check-cobranza', [FacturasController::class, 'checkCobranza'])
                 ->add(new RoleMiddleware(['admin', 'cobranzas']));
             $g->delete('/facturas/{id:[0-9]+}', [FacturasController::class, 'destroy'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Servicios -----
+            $g->get('/servicios', [ServiciosController::class, 'index']);
+            $g->get('/servicios/{id:[0-9]+}', [ServiciosController::class, 'show']);
+            $g->post('/servicios', [ServiciosController::class, 'store'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->put('/servicios/{id:[0-9]+}', [ServiciosController::class, 'update'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->delete('/servicios/{id:[0-9]+}', [ServiciosController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
 
             // ----- Dashboard -----
