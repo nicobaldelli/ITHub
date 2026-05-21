@@ -21,28 +21,35 @@ final class Middleware
 {
     public static function register(App $app, array $settings): void
     {
-        // 1. (Más interno) Parseo de JSON body
+        // IMPORTANTE: Slim ejecuta middlewares en orden LIFO (último agregado = primero en correr).
+        // Layout final de ejecución (de más externo a más interno):
+        //   Cors → ErrorHandler → RequestId → Routing → SecurityHeaders → BodyParsing → JsonBody → controller
+        //
+        // Por qué Cors es el más externo:
+        //   - Intercepta OPTIONS preflight antes de tocar Routing
+        //   - Aplica las CORS headers SIEMPRE, incluso cuando hay errores (429, 401, 500),
+        //     para que el browser pueda leer el status code real en lugar de un "CORS error".
+
+        // 1. (más interno) — Parseo estricto de JSON body
         $app->add(JsonBodyMiddleware::class);
 
-        // 2. RoutingMiddleware lo agrega Slim automáticamente
-
-        // 3. Body parsing middleware
+        // 2. Body parsing
         $app->addBodyParsingMiddleware();
 
-        // 4. Headers de seguridad (deben aplicarse a todas las respuestas)
+        // 3. Headers de seguridad
         $app->add(SecurityHeadersMiddleware::class);
 
-        // 5. CORS (antes del error handler para que también aplique en errores)
-        $app->add(CorsMiddleware::class);
-
-        // 6. Routing (Slim lo agrega ahora explícitamente)
+        // 4. Routing
         $app->addRoutingMiddleware();
 
-        // 7. Request ID (para correlación de logs) — debe ser el más externo posible
+        // 5. Request ID
         $app->add(RequestIdMiddleware::class);
 
-        // 8. Error handler global (envuelve todo) — el "último agregado" = "primero en correr"
-        // Usamos custom porque queremos formato JSON consistente + log con request_id
+        // 6. Error handler global (catch-all, devuelve JSON)
         $app->add(ErrorHandlerMiddleware::class);
+
+        // 7. Cors — el MÁS externo: envuelve TODO, incluido el ErrorHandler,
+        //    para que las respuestas de error también tengan CORS headers.
+        $app->add(CorsMiddleware::class);
     }
 }
