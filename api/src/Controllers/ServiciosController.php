@@ -8,6 +8,7 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\NotFoundException;
 use ITHub\Api\Models\User;
 use ITHub\Api\Repositories\ServicioRepository;
+use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use ITHub\Api\Support\ResponseFactory;
@@ -20,6 +21,7 @@ final class ServiciosController
     private readonly ServicioRepository $repo;
     private readonly ServicioService $service;
     private readonly ServicioCuotaService $cuotaService;
+    private readonly ServicioAjusteService $ajusteService;
 
     public function __construct(private readonly ContainerInterface $container)
     {
@@ -27,6 +29,7 @@ final class ServiciosController
         $this->repo = $this->container->get(ServicioRepository::class);
         $this->service = $this->container->get(ServicioService::class);
         $this->cuotaService = $this->container->get(ServicioCuotaService::class);
+        $this->ajusteService = $this->container->get(ServicioAjusteService::class);
     }
 
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -155,5 +158,39 @@ final class ServiciosController
         $body = (array) $request->getParsedBody();
         $factura = $this->cuotaService->facturar((int) $args['id'], (int) $args['cid'], $body, $user, $request);
         return ResponseFactory::json($response, $factura, 201);
+    }
+
+    // ============================================================
+    // AJUSTES DE TARIFA
+    // ============================================================
+
+    public function listarAjustes(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        return ResponseFactory::json($response, $this->ajusteService->listar((int) $args['id']));
+    }
+
+    public function crearAjuste(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        /** @var User $user */
+        $user = $request->getAttribute('user');
+        $body = (array) $request->getParsedBody();
+        $a = $this->ajusteService->create((int) $args['id'], $body, $user, $request);
+        return ResponseFactory::json($response, $a, 201);
+    }
+
+    public function aplicarAjuste(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        /** @var User $user */
+        $user = $request->getAttribute('user');
+        $a = $this->ajusteService->aplicar((int) $args['aid'], $user, $request);
+        return ResponseFactory::json($response, $a);
+    }
+
+    public function eliminarAjuste(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        /** @var User $user */
+        $user = $request->getAttribute('user');
+        $this->ajusteService->eliminar((int) $args['aid'], $user, $request);
+        return ResponseFactory::noContent($response);
     }
 }

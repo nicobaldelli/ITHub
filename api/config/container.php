@@ -17,6 +17,7 @@ use ITHub\Api\Services\ClienteService;
 use ITHub\Api\Services\DashboardService;
 use ITHub\Api\Services\FacturaService;
 use ITHub\Api\Services\JwtService;
+use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use Monolog\Formatter\LineFormatter;
@@ -153,6 +154,9 @@ return [
     ),
     ServicioCuotaService::class => fn (ContainerInterface $c) => new ServicioCuotaService(
         $c->get(FacturaService::class),
+        $c->get(AuditoriaService::class)
+    ),
+    ServicioAjusteService::class => fn (ContainerInterface $c) => new ServicioAjusteService(
         $c->get(AuditoriaService::class)
     ),
 ];

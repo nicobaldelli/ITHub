@@ -106,6 +106,15 @@ final class Routes
             $g->post('/servicios/{id:[0-9]+}/cuotas/{cid:[0-9]+}/facturar', [ServiciosController::class, 'facturarCuota'])
                 ->add(new RoleMiddleware(['admin', 'ventas']));
 
+            // Ajustes de tarifa
+            $g->get('/servicios/{id:[0-9]+}/ajustes', [ServiciosController::class, 'listarAjustes']);
+            $g->post('/servicios/{id:[0-9]+}/ajustes', [ServiciosController::class, 'crearAjuste'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->post('/servicios/{id:[0-9]+}/ajustes/{aid:[0-9]+}/aplicar', [ServiciosController::class, 'aplicarAjuste'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->delete('/servicios/{id:[0-9]+}/ajustes/{aid:[0-9]+}', [ServiciosController::class, 'eliminarAjuste'])
+                ->add(new RoleMiddleware(['admin']));
+
             // ----- Dashboard -----
             $g->get('/dashboard/kpis', [DashboardController::class, 'kpis']);
             $g->get('/dashboard/tendencias', [DashboardController::class, 'tendencias']);
