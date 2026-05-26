@@ -144,7 +144,8 @@ return [
     FacturaService::class => fn (ContainerInterface $c) => new FacturaService(
         $c->get(FacturaRepository::class),
         $c->get(ClienteRepository::class),
-        $c->get(AuditoriaService::class)
+        $c->get(AuditoriaService::class),
+        $c->get(GoogleDriveService::class),
     ),
 
     // ============================================================

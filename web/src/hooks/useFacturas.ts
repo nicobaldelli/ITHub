@@ -112,8 +112,21 @@ export function useFacturaMutations() {
     async (
       id: number,
       data: { numero_factura: string; fecha_factura: string; fecha_envio: string; tdc?: number | null },
+      pdf: File,
     ): Promise<Factura> => {
-      const res = await api.patch<ApiSuccess<Factura>>(`/facturas/${id}/marcar-enviada`, data);
+      const form = new FormData();
+      form.append('archivo', pdf);
+      form.append('numero_factura', data.numero_factura);
+      form.append('fecha_factura', data.fecha_factura);
+      form.append('fecha_envio', data.fecha_envio);
+      if (data.tdc !== undefined && data.tdc !== null) {
+        form.append('tdc', String(data.tdc));
+      }
+      const res = await api.patch<ApiSuccess<Factura>>(
+        `/facturas/${id}/marcar-enviada`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
       return res.data.data;
     },
     [],

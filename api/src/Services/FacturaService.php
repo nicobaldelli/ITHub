@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace ITHub\Api\Services;
 
+use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\ForbiddenException;
 use ITHub\Api\Exceptions\NotFoundException;
 use ITHub\Api\Exceptions\ValidationException;
 use ITHub\Api\Models\Auditoria;
+use ITHub\Api\Models\FacturaArchivo;
 use ITHub\Api\Models\FacturaVenta;
 use ITHub\Api\Models\User;
 use ITHub\Api\Repositories\ClienteRepository;
 use ITHub\Api\Repositories\FacturaRepository;
 use ITHub\Api\Validators\FacturaValidator;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UploadedFileInterface;
 
 /**
  * Lógica de negocio de facturas.
@@ -34,7 +37,8 @@ final class FacturaService
     public function __construct(
         private readonly FacturaRepository $facturaRepo,
         private readonly ClienteRepository $clienteRepo,
-        private readonly AuditoriaService $audit
+        private readonly AuditoriaService $audit,
+        private readonly GoogleDriveService $drive,
     ) {
     }
 
@@ -177,16 +181,23 @@ final class FacturaService
      *  - numero_factura definitivo (no puede empezar con "AUTO-")
      *  - fecha_factura (fecha de emisión)
      *  - fecha_envio
+     *  - archivo PDF de la factura emitida
      *  - tdc, si la factura es USD y todavía no tiene
      *
-     * Pensado especialmente para facturas creadas automáticamente por el cron
-     * (tienen numero "AUTO-{cuota_id}" y fecha_envio NULL) pero también
-     * funciona para facturas manuales que todavía no se enviaron.
+     * El PDF se sube a Drive en la ruta:
+     *   <root>/<cliente>/<año>/<mes>/<numero_factura>.pdf
+     * Si las carpetas no existen, se crean. Drive debe estar configurado
+     * (drive_root_folder_id en config_app + service-account.json).
      *
      * @param array{numero_factura?:string, fecha_factura?:string, fecha_envio?:string, tdc?:float|string|null} $data
      */
-    public function marcarEnviada(int $id, array $data, User $user, ServerRequestInterface $request): FacturaVenta
-    {
+    public function marcarEnviada(
+        int $id,
+        array $data,
+        ?UploadedFileInterface $pdf,
+        User $user,
+        ServerRequestInterface $request,
+    ): FacturaVenta {
         $factura = $this->facturaRepo->findById($id);
         if ($factura === null) {
             throw new NotFoundException('Factura no encontrada');
@@ -234,8 +245,33 @@ final class FacturaService
             }
         }
 
+        // PDF obligatorio
+        if ($pdf === null || $pdf->getError() === UPLOAD_ERR_NO_FILE) {
+            $errors['archivo'] = 'Archivo PDF de la factura requerido';
+        } elseif ($pdf->getError() !== UPLOAD_ERR_OK) {
+            $errors['archivo'] = 'Error al subir el archivo (codigo ' . $pdf->getError() . ')';
+        } else {
+            // Validar mime PDF con magic bytes
+            $stream = $pdf->getStream();
+            $head = $stream->read(8);
+            $stream->rewind();
+            // PDF empieza con "%PDF-"
+            if (!str_starts_with($head, '%PDF-')) {
+                $errors['archivo'] = 'El archivo debe ser un PDF válido';
+            }
+        }
+
         if (!empty($errors)) {
             throw new ValidationException('Datos inválidos para marcar como enviada', $errors);
+        }
+
+        // Verificar que Drive esté disponible ANTES de hacer cambios
+        if (!$this->drive->isAvailable()) {
+            throw new ValidationException(
+                'Google Drive no está configurado — no se puede subir el PDF. '
+                . 'Configurá drive_root_folder_id en /configuracion y el service account JSON.',
+                ['archivo' => 'drive no disponible']
+            );
         }
 
         $before = [
@@ -246,32 +282,70 @@ final class FacturaService
             'importe_total_pesos' => $factura->importe_total_pesos,
         ];
 
-        $factura->numero_factura = $numero;
-        $factura->fecha_factura = $fechaFactura;
-        $factura->fecha_envio = $fechaEnvio;
+        // 1. Subir PDF a Drive PRIMERO (si falla, no tocamos la factura).
+        //    El cliente snapshot se toma de la factura en su momento de creación.
+        $clienteSnapshot = $factura->cliente?->razon_social ?? 'cliente';
+        $fechaParaCarpeta = \DateTimeImmutable::createFromFormat('Y-m-d', $fechaFactura)
+            ?: new \DateTimeImmutable();
 
-        if ($tdcEntrante !== null) {
-            $factura->tdc = $tdcEntrante;
-            // Recalcular importe_total_pesos = importe_con_iva * tdc
-            $factura->importe_total_pesos = round((float) $factura->importe_con_iva * $tdcEntrante, 2);
-        }
+        $driveResult = $this->drive->uploadFacturaArchivo(
+            $clienteSnapshot,
+            $fechaParaCarpeta,
+            $pdf->getClientFilename() ?? 'factura.pdf',
+            'application/pdf',
+            $pdf->getSize() ?? 0,
+            $pdf->getStream()->getContents(),
+            forcedFileName: $numero . '.pdf',
+        );
 
-        $factura->updated_by = $user->id;
-        $factura->save();
+        // 2. Transacción: crear FacturaArchivo + actualizar factura
+        return Capsule::connection()->transaction(function () use (
+            $factura, $numero, $fechaFactura, $fechaEnvio, $tdcEntrante,
+            $user, $request, $before, $driveResult, $pdf
+        ): FacturaVenta {
+            // Crear adjunto vinculado a la factura
+            FacturaArchivo::create([
+                'factura_id' => $factura->id,
+                'drive_file_id' => $driveResult['drive_file_id'],
+                'nombre_archivo' => $numero . '.pdf',
+                'mime_type' => $driveResult['mime_type'],
+                'tamanio_bytes' => $driveResult['tamanio_bytes'],
+                'drive_view_url' => $driveResult['drive_view_url'],
+                'drive_download_url' => $driveResult['drive_download_url'],
+                'uploaded_by' => $user->id,
+            ]);
 
-        $this->audit->log($user->id, 'factura', $factura->id, Auditoria::ACCION_EDITAR, [
-            'accion' => 'marcar_enviada',
-            'before' => $before,
-            'after' => [
-                'numero_factura' => $factura->numero_factura,
-                'fecha_factura' => $factura->fecha_factura?->format('Y-m-d'),
-                'fecha_envio' => $factura->fecha_envio?->format('Y-m-d'),
-                'tdc' => $factura->tdc,
-                'importe_total_pesos' => $factura->importe_total_pesos,
-            ],
-        ], $request);
+            // Actualizar factura
+            $factura->numero_factura = $numero;
+            $factura->fecha_factura = $fechaFactura;
+            $factura->fecha_envio = $fechaEnvio;
 
-        return $factura->fresh(['cliente']);
+            if ($tdcEntrante !== null) {
+                $factura->tdc = $tdcEntrante;
+                $factura->importe_total_pesos = round(
+                    (float) $factura->importe_con_iva * $tdcEntrante, 2,
+                );
+            }
+
+            $factura->updated_by = $user->id;
+            $factura->save();
+
+            $this->audit->log($user->id, 'factura', $factura->id, Auditoria::ACCION_EDITAR, [
+                'accion' => 'marcar_enviada',
+                'before' => $before,
+                'after' => [
+                    'numero_factura' => $factura->numero_factura,
+                    'fecha_factura' => $factura->fecha_factura?->format('Y-m-d'),
+                    'fecha_envio' => $factura->fecha_envio?->format('Y-m-d'),
+                    'tdc' => $factura->tdc,
+                    'importe_total_pesos' => $factura->importe_total_pesos,
+                ],
+                'archivo' => $numero . '.pdf',
+                'drive_file_id' => $driveResult['drive_file_id'],
+            ], $request);
+
+            return $factura->fresh(['cliente']);
+        });
     }
 
     private static function isValidDate(string $value): bool

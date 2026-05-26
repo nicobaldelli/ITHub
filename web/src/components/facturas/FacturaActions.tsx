@@ -216,6 +216,7 @@ function MarcarEnviadaModal({
   marcarEnviada: (
     id: number,
     data: { numero_factura: string; fecha_factura: string; fecha_envio: string; tdc?: number | null },
+    pdf: File,
   ) => Promise<Factura>;
   onDone: () => void;
 }) {
@@ -232,6 +233,7 @@ function MarcarEnviadaModal({
   const [tdc, setTdc] = useState<string>(
     factura.tdc !== null ? String(factura.tdc) : '',
   );
+  const [pdf, setPdf] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function go() {
@@ -251,16 +253,32 @@ function MarcarEnviadaModal({
       toast.error('TDC requerido para facturas en USD');
       return;
     }
+    if (!pdf) {
+      toast.error('PDF de la factura requerido');
+      return;
+    }
+    if (!pdf.name.toLowerCase().endsWith('.pdf') && pdf.type !== 'application/pdf') {
+      toast.error('El archivo debe ser un PDF');
+      return;
+    }
+    if (pdf.size > 25 * 1024 * 1024) {
+      toast.error('El PDF supera los 25 MB');
+      return;
+    }
 
     setLoading(true);
     try {
-      await marcarEnviada(factura.id, {
-        numero_factura: numero.trim(),
-        fecha_factura: fechaFactura,
-        fecha_envio: fechaEnvio,
-        tdc: necesitaTdc ? Number(tdc) : undefined,
-      });
-      toast.success('Factura marcada como enviada');
+      await marcarEnviada(
+        factura.id,
+        {
+          numero_factura: numero.trim(),
+          fecha_factura: fechaFactura,
+          fecha_envio: fechaEnvio,
+          tdc: necesitaTdc ? Number(tdc) : undefined,
+        },
+        pdf,
+      );
+      toast.success('Factura marcada como enviada y PDF subido a Drive');
       onDone();
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo marcar como enviada'));
@@ -340,6 +358,28 @@ function MarcarEnviadaModal({
             </p>
           </div>
         )}
+
+        <div>
+          <Label className="mb-1 block">
+            PDF de la factura <span className="text-rose-500">*</span>
+          </Label>
+          <Input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => setPdf(e.target.files?.[0] ?? null)}
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Se sube a Drive como <code>{numero.trim() || '<numero>'}.pdf</code> dentro de{' '}
+            <code>&lt;raíz&gt;/{factura.cliente?.razon_social ?? 'cliente'}/{fechaFactura?.slice(0, 4) || 'año'}/{fechaFactura?.slice(5, 7) || 'mes'}/</code>.
+            Las carpetas se crean automáticamente si no existen.
+          </p>
+          {pdf && (
+            <p className="mt-1 text-xs text-accent-700">
+              Seleccionado: <strong>{pdf.name}</strong>{' '}
+              ({(pdf.size / 1024).toFixed(1)} KB)
+            </p>
+          )}
+        </div>
       </div>
 
       <DialogFooter>

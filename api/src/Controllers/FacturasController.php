@@ -99,7 +99,9 @@ final class FacturasController
         /** @var User $user */
         $user = $request->getAttribute('user');
         $body = (array) $request->getParsedBody();
-        $factura = $this->service->marcarEnviada((int) $args['id'], $body, $user, $request);
+        $files = $request->getUploadedFiles();
+        $pdf = $files['archivo'] ?? null;
+        $factura = $this->service->marcarEnviada((int) $args['id'], $body, $pdf, $user, $request);
         return ResponseFactory::json($response, $factura);
     }
 

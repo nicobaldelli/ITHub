@@ -62,7 +62,12 @@ final class GoogleDriveService
     }
 
     /**
-     * Sube un archivo a la carpeta año/mes/cliente.
+     * Sube un archivo a la carpeta `<root>/<cliente>/<año>/<mes>/`.
+     *
+     * Si las carpetas no existen, las crea. Si una factura tiene número
+     * definitivo, se puede forzar el nombre final del archivo via
+     * `forcedFileName` (típicamente `<numero_factura>.pdf` cuando se
+     * marca como enviada).
      *
      * @param resource|string $bodyOrPath stream con el contenido o path al archivo subido
      * @return array{drive_file_id:string, drive_view_url:string|null, drive_download_url:string|null, mime_type:string, tamanio_bytes:int}
@@ -74,9 +79,14 @@ final class GoogleDriveService
         string $mimeType,
         int $tamanioBytes,
         mixed $bodyOrPath,
+        ?string $forcedFileName = null,
     ): array {
+        $finalName = $forcedFileName !== null && $forcedFileName !== ''
+            ? $forcedFileName
+            : $nombreArchivo;
+
         $this->ensureAvailable();
-        $this->validarUpload($nombreArchivo, $mimeType, $tamanioBytes);
+        $this->validarUpload($finalName, $mimeType, $tamanioBytes);
 
         $drive = $this->getDriveService();
         $rootFolderId = $this->getRootFolderId();
@@ -85,13 +95,14 @@ final class GoogleDriveService
         $mes = $fechaFactura->format('m') . '-' . self::nombreMes((int) $fechaFactura->format('n'));
         $clienteSafe = self::sanitizeFolderName($clienteRazonSocial);
 
-        $folderAnio = $this->ensureFolder($drive, $anio, $rootFolderId);
+        // Estructura: <root>/<cliente>/<año>/<mes>/
+        $folderCliente = $this->ensureFolder($drive, $clienteSafe, $rootFolderId);
+        $folderAnio = $this->ensureFolder($drive, $anio, $folderCliente);
         $folderMes = $this->ensureFolder($drive, $mes, $folderAnio);
-        $folderCliente = $this->ensureFolder($drive, $clienteSafe, $folderMes);
 
         $file = new DriveFile();
-        $file->setName(self::sanitizeFileName($nombreArchivo));
-        $file->setParents([$folderCliente]);
+        $file->setName(self::sanitizeFileName($finalName));
+        $file->setParents([$folderMes]);
 
         $content = is_resource($bodyOrPath)
             ? stream_get_contents($bodyOrPath)
@@ -110,7 +121,7 @@ final class GoogleDriveService
         $this->logger->info('drive.uploaded', [
             'file_id' => $created->id,
             'name' => $created->name,
-            'folder' => "{$anio}/{$mes}/{$clienteSafe}",
+            'folder' => "{$clienteSafe}/{$anio}/{$mes}",
         ]);
 
         return [
