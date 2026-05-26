@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITHub\Api\Bootstrap;
 
+use ITHub\Api\Controllers\AuditoriaController;
 use ITHub\Api\Controllers\AuthController;
 use ITHub\Api\Controllers\ClientesController;
 use ITHub\Api\Controllers\ConfigController;
@@ -151,6 +152,10 @@ final class Routes
             $g->get('/config', [ConfigController::class, 'index'])
                 ->add(new RoleMiddleware(['admin']));
             $g->put('/config/{clave:[a-z_0-9]+}', [ConfigController::class, 'update'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Auditoria (admin only) -----
+            $g->get('/auditoria', [AuditoriaController::class, 'index'])
                 ->add(new RoleMiddleware(['admin']));
         })
             ->add(new RateLimitMiddleware('general'))
