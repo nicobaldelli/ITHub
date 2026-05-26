@@ -1,19 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Filter, Plus } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { EstadoBadge } from '@/components/facturas/EstadoBadge';
 import { useFacturas, type FacturasFilters } from '@/hooks/useFacturas';
+import { useAuthStore } from '@/stores/auth';
 import { money, date } from '@/lib/format';
 
 export default function FacturasPage() {
   const [filters, setFilters] = useState<FacturasFilters>({ page: 1, per_page: 25 });
   const [searchInput, setSearchInput] = useState('');
   const { data, meta, loading, error } = useFacturas(filters);
+  const user = useAuthStore((s) => s.user);
+  const puedeCrear = user?.rol === 'admin' || user?.rol === 'ventas';
 
   function setFilter(patch: Partial<FacturasFilters>) {
     setFilters((f) => ({ ...f, ...patch, page: 1 }));
@@ -21,6 +25,16 @@ export default function FacturasPage() {
 
   return (
     <AppShell title="Facturas">
+      {puedeCrear && (
+        <div className="mb-4 flex justify-end">
+          <Link href="/facturas/nueva">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nueva factura
+            </Button>
+          </Link>
+        </div>
+      )}
       {/* Filtros */}
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
@@ -129,7 +143,14 @@ export default function FacturasPage() {
               <tbody className="divide-y divide-neutral-100">
                 {data.map((f) => (
                   <tr key={f.id} className="hover:bg-neutral-50">
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{f.numero_factura}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">
+                      <Link
+                        href={`/facturas/${f.id}`}
+                        className="text-primary-700 hover:underline"
+                      >
+                        {f.numero_factura}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{f.cliente?.razon_social ?? '—'}</td>
                     <td className="px-4 py-3 text-neutral-600">{f.tipo}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-neutral-600">

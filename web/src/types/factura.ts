@@ -48,13 +48,22 @@ export interface Factura {
   plazo_pago: number | null;
   fecha_pago: string | null;
   direccion: string | null;
+  mail_envio_factura: string | null;
+  contacto_envio_factura: string | null;
+  telefono_contacto_proveedores: string | null;
+  mail_gestion_cobranza: string | null;
+  contacto_gestion_cobranza: string | null;
+  telefono_contacto_cobranza: string | null;
   observaciones: string | null;
   check_cobranza: boolean;
   check_cobranza_user_id: number | null;
   check_cobranza_fecha: string | null;
+  drive_folder_id: string | null;
+  servicio_cuota_id: number | null;
   estado: EstadoFactura;
   created_by: number;
   updated_by: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }

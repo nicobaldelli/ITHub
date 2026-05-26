@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess, ApiMeta } from '@/types/api';
 import type { Factura } from '@/types/factura';
@@ -54,4 +54,59 @@ export function useFacturas(filters: FacturasFilters) {
   }, [JSON.stringify(filters)]); // simple, recalcula al cambiar filtros
 
   return { data, meta, loading, error };
+}
+
+/** Carga una factura por ID. */
+export function useFactura(id: number | null) {
+  const [data, setData] = useState<Factura | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!id) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+    let canceled = false;
+    setLoading(true);
+    setError(null);
+
+    api
+      .get<ApiSuccess<Factura>>(`/facturas/${id}`)
+      .then((res) => !canceled && setData(res.data.data))
+      .catch((e) => !canceled && setError(apiErrorMessage(e, 'Error cargando factura')))
+      .finally(() => !canceled && setLoading(false));
+
+    return () => {
+      canceled = true;
+    };
+  }, [id, reloadKey]);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+  return { data, loading, error, reload };
+}
+
+export function useFacturaMutations() {
+  const create = useCallback(async (data: unknown): Promise<Factura> => {
+    const res = await api.post<ApiSuccess<Factura>>('/facturas', data);
+    return res.data.data;
+  }, []);
+
+  const update = useCallback(async (id: number, data: unknown): Promise<Factura> => {
+    const res = await api.put<ApiSuccess<Factura>>(`/facturas/${id}`, data);
+    return res.data.data;
+  }, []);
+
+  const remove = useCallback(async (id: number): Promise<void> => {
+    await api.delete(`/facturas/${id}`);
+  }, []);
+
+  const toggleCheckCobranza = useCallback(async (id: number): Promise<Factura> => {
+    const res = await api.patch<ApiSuccess<Factura>>(`/facturas/${id}/check-cobranza`);
+    return res.data.data;
+  }, []);
+
+  return { create, update, remove, toggleCheckCobranza };
 }
