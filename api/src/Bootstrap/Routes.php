@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITHub\Api\Bootstrap;
 
+use ITHub\Api\Controllers\ArchivadosController;
 use ITHub\Api\Controllers\ArchivosController;
 use ITHub\Api\Controllers\AuditoriaController;
 use ITHub\Api\Controllers\AuthController;
@@ -178,6 +179,12 @@ final class Routes
 
             // ----- Auditoria (admin only) -----
             $g->get('/auditoria', [AuditoriaController::class, 'index'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Archivados (admin only) -----
+            $g->get('/archivados', [ArchivadosController::class, 'index'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/archivados/{entidad:[a-z]+}/{id:[0-9]+}/restaurar', [ArchivadosController::class, 'restaurar'])
                 ->add(new RoleMiddleware(['admin']));
 
             // ----- Cron manual desde UI (admin) -----

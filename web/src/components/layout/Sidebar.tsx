@@ -10,6 +10,7 @@ import {
   ScrollText,
   UserCircle,
   Briefcase,
+  Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -21,6 +22,7 @@ const items = [
   { href: '/clientes', label: 'Clientes', icon: Users, roles: null },
   { href: '/usuarios', label: 'Usuarios', icon: UserCircle, roles: ['admin'] },
   { href: '/auditoria', label: 'Auditoría', icon: ScrollText, roles: ['admin'] },
+  { href: '/archivados', label: 'Archivados', icon: Archive, roles: ['admin'] },
   { href: '/configuracion', label: 'Configuración', icon: Settings, roles: ['admin'] },
 ];
 
