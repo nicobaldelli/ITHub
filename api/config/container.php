@@ -20,6 +20,7 @@ use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
+use ITHub\Api\Services\ServiciosMetricsService;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -143,6 +144,7 @@ return [
     // Dashboard
     // ============================================================
     DashboardService::class => fn () => new DashboardService(),
+    ServiciosMetricsService::class => fn () => new ServiciosMetricsService(),
 
     // ============================================================
     // Servicios

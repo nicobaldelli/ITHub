@@ -6,6 +6,7 @@ namespace ITHub\Api\Controllers;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Services\DashboardService;
+use ITHub\Api\Services\ServiciosMetricsService;
 use ITHub\Api\Support\ResponseFactory;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -14,11 +15,13 @@ use Psr\Http\Message\ServerRequestInterface;
 final class DashboardController
 {
     private readonly DashboardService $service;
+    private readonly ServiciosMetricsService $serviciosMetrics;
 
     public function __construct(private readonly ContainerInterface $container)
     {
         $this->container->get(Capsule::class);
         $this->service = $this->container->get(DashboardService::class);
+        $this->serviciosMetrics = $this->container->get(ServiciosMetricsService::class);
     }
 
     public function kpis(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -53,5 +56,29 @@ final class DashboardController
     public function distribucionMoneda(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         return ResponseFactory::json($response, $this->service->distribucionMoneda($request->getQueryParams()));
+    }
+
+    // ============================================================
+    // Métricas de Servicios (Chunk 7)
+    // ============================================================
+
+    public function serviciosActivos(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        return ResponseFactory::json($response, $this->serviciosMetrics->serviciosActivos());
+    }
+
+    public function cuotasDelMes(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        return ResponseFactory::json($response, $this->serviciosMetrics->cuotasDelMes($request->getQueryParams()));
+    }
+
+    public function ajustesProximos(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        return ResponseFactory::json($response, $this->serviciosMetrics->ajustesProximos($request->getQueryParams()));
+    }
+
+    public function mrr(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        return ResponseFactory::json($response, $this->serviciosMetrics->mrr());
     }
 }

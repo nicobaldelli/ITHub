@@ -108,6 +108,8 @@ CRUD y acciones de estado.
 
 ## Dashboard (`/dashboard`)
 
+### Facturación
+
 | Método | Path | Roles | Descripción |
 |---|---|---|---|
 | GET | `/dashboard/kpis` | todos | DSO, ADD, tasa recuperación, total emitido, total cobrado, etc. · query: `from`, `to`, `moneda` |
@@ -116,6 +118,22 @@ CRUD y acciones de estado.
 | GET | `/dashboard/top-clientes` | todos | Top N por facturación · query: `limit`, `from`, `to` |
 | GET | `/dashboard/distribucion-tipo` | todos | Reparto por tipo de factura |
 | GET | `/dashboard/distribucion-moneda` | todos | Reparto ARS vs USD |
+
+### Servicios (Chunk 7)
+
+| Método | Path | Roles | Descripción |
+|---|---|---|---|
+| GET | `/dashboard/servicios-activos` | todos | Conteo de servicios vigentes (activos + pausados) con desglose por tipo + cantidad de indefinidos |
+| GET | `/dashboard/cuotas-mes` | todos | Cuotas pendientes a facturar en el mes corriente · query: `mes=YYYY-MM` (opcional, default mes actual) |
+| GET | `/dashboard/ajustes-proximos` | todos | Ajustes de tarifa programados aún no aplicados · query: `dias=N` (default 30, max 365) |
+| GET | `/dashboard/mrr` | todos | MRR/ARR estimado de mantenimientos activos, desglosado por moneda (sin conversión consolidada) |
+
+**Flexibilidad del módulo (`ServiciosMetricsService`):** las definiciones que más probablemente cambien están como constantes públicas. Modificar la métrica = editar una sola constante:
+
+- `ESTADOS_VIGENTES` — qué estados cuentan en `/servicios-activos` (hoy: `activo + pausado`)
+- `ESTADOS_PARA_MRR` — qué estados suman al MRR (hoy: solo `activo`)
+- `DIAS_POR_MES_NORMALIZACION` — divisor para normalizar `intervalo_dias` a mensual (hoy: 30)
+- `VENTANA_AJUSTES_DIAS_DEFAULT` — ventana por defecto de ajustes próximos (hoy: 30)
 
 ---
 

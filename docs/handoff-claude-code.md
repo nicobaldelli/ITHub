@@ -31,7 +31,6 @@
 - **Pendiente del frontend:** página de Servicios (CRUD + lista de cuotas + ajustes), forms de facturas/clientes, integración del flow "facturar cuota"
 
 ### 🚧 Pendiente del backend
-- **Chunk 7** — Dashboard de Servicios (endpoints: servicios activos, cuotas a facturar este mes, próximos ajustes, MRR estimado)
 - **Chunk 8** — Cron job: rolling window de cuotas para indefinidos + recordatorios de ajustes próximos a vencer
 - **Drive integration** (upload de archivos a Drive con Service Account)
 - **Mail recordatorios** de vencimientos con PHPMailer
@@ -111,15 +110,13 @@ Está en `CLAUDE.md` raíz, pero recordá:
 
 ## Próximo paso recomendado al volver
 
-**Opción A — Seguir con el backend (Chunk 7):**
-Implementar dashboard de servicios:
-- `GET /dashboard/servicios-kpis` — servicios activos, MRR estimado, cuotas a facturar este mes, próximos ajustes
-- `GET /dashboard/proximas-cuotas` — lista de cuotas próximas a vencer
+Chunk 7 (Dashboard de Servicios) ya está implementado — 4 endpoints separados bajo `/dashboard/*`. Próximas opciones:
 
-**Opción B — Saltar al frontend de servicios (Chunk 9 del plan original):**
-Implementar página `/servicios` con lista + detalle + forms.
+**Opción A — Frontend de servicios (Chunk 9 del plan original):**
+Implementar página `/servicios` con lista + detalle + forms + modales de acciones. Consume tanto el CRUD existente como los endpoints del dashboard.
+
+**Opción B — Chunk 8: Cron jobs:**
+Rolling window de cuotas para mantenimientos indefinidos + recordatorios por mail (requiere también la integración SMTP).
 
 **Opción C — Empezar deploy en Hostinger:**
 Documentar y scriptear el deploy del backend + frontend (Static Export).
-
-Mi recomendación al volver es **Opción A** primero (es rápido, deja todos los endpoints listos para el frontend) y después **Opción B** (un sub-chunk frontend grande).

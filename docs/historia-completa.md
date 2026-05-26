@@ -701,9 +701,7 @@ Todas con sus respuestas finales:
 ## 10. Pendientes
 
 ### Backend
-- **Chunk 7:** Dashboard de Servicios
-  - `GET /dashboard/servicios-kpis` (servicios activos, MRR estimado, cuotas a facturar este mes, próximos ajustes)
-  - `GET /dashboard/proximas-cuotas` (lista de cuotas próximas a vencer)
+- ~~**Chunk 7:** Dashboard de Servicios~~ — **DONE** (4 endpoints separados: `/dashboard/servicios-activos`, `/cuotas-mes`, `/ajustes-proximos`, `/mrr`). MRR sin conversión consolidada — devuelto por moneda separada. `ServiciosMetricsService` expone constantes públicas para ajustar definiciones (estados que cuentan, ventanas, normalización a mensual).
 - **Chunk 8:** Cron jobs
   - Rolling window de cuotas para mantenimientos indefinidos (extender mes a mes)
   - Recordatorios de cuotas próximas a vencer (configurable global + override por servicio)

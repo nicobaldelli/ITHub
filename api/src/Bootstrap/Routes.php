@@ -122,6 +122,12 @@ final class Routes
             $g->get('/dashboard/top-clientes', [DashboardController::class, 'topClientes']);
             $g->get('/dashboard/distribucion-tipo', [DashboardController::class, 'distribucionTipo']);
             $g->get('/dashboard/distribucion-moneda', [DashboardController::class, 'distribucionMoneda']);
+
+            // Dashboard de Servicios (chunk 7)
+            $g->get('/dashboard/servicios-activos', [DashboardController::class, 'serviciosActivos']);
+            $g->get('/dashboard/cuotas-mes', [DashboardController::class, 'cuotasDelMes']);
+            $g->get('/dashboard/ajustes-proximos', [DashboardController::class, 'ajustesProximos']);
+            $g->get('/dashboard/mrr', [DashboardController::class, 'mrr']);
         })
             ->add(new RateLimitMiddleware('general'))
             ->add(JwtAuthMiddleware::class);
