@@ -8,6 +8,7 @@ use ITHub\Api\Controllers\AuditoriaController;
 use ITHub\Api\Controllers\AuthController;
 use ITHub\Api\Controllers\ClientesController;
 use ITHub\Api\Controllers\ConfigController;
+use ITHub\Api\Controllers\CronController;
 use ITHub\Api\Controllers\DashboardController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
@@ -30,6 +31,13 @@ final class Routes
     {
         // Health (público)
         $app->get('/health', [HealthController::class, 'check']);
+
+        // ============================================================
+        // CRON (público — auth via header X-Cron-Token + IP allowlist
+        //   o JWT admin para gatillo manual desde la UI)
+        // ============================================================
+        $app->post('/cron/recordatorios', [CronController::class, 'recordatorios']);
+        $app->post('/cron/recalcular', [CronController::class, 'recalcular']);
 
         // ============================================================
         // AUTH (rutas públicas con rate limit estricto)
@@ -156,6 +164,12 @@ final class Routes
 
             // ----- Auditoria (admin only) -----
             $g->get('/auditoria', [AuditoriaController::class, 'index'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Cron manual desde UI (admin) -----
+            $g->post('/admin/cron/recordatorios', [CronController::class, 'recordatorios'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/admin/cron/recalcular', [CronController::class, 'recalcular'])
                 ->add(new RoleMiddleware(['admin']));
         })
             ->add(new RateLimitMiddleware('general'))

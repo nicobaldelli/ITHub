@@ -20,6 +20,8 @@ use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
+use ITHub\Api\Services\MailerService;
+use ITHub\Api\Services\NotificacionService;
 use ITHub\Api\Services\ServiciosMetricsService;
 use ITHub\Api\Services\UsuarioService;
 use Monolog\Formatter\LineFormatter;
@@ -170,5 +172,18 @@ return [
         $c,
         $c->get(AuthService::class),
         $c->get(AuditoriaService::class)
+    ),
+
+    // ============================================================
+    // Mailer + Notificaciones
+    // ============================================================
+    MailerService::class => fn (ContainerInterface $c) => new MailerService(
+        $c,
+        $c->get(LoggerInterface::class)
+    ),
+    NotificacionService::class => fn (ContainerInterface $c) => new NotificacionService(
+        $c,
+        $c->get(MailerService::class),
+        $c->get(LoggerInterface::class)
     ),
 ];

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Save, RefreshCw, Eye, EyeOff, Send, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useConfig } from '@/hooks/useConfig';
 import { useAuthStore } from '@/stores/auth';
+import { api, apiErrorMessage } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import type { ConfigEntry } from '@/types/config';
 
@@ -65,9 +66,52 @@ export default function ConfiguracionPage() {
               </div>
             </Card>
           ))}
+
+          <CronManualCard />
         </div>
       )}
     </AppShell>
+  );
+}
+
+function CronManualCard() {
+  const [loadingMail, setLoadingMail] = useState(false);
+  const [loadingRecalc, setLoadingRecalc] = useState(false);
+
+  async function disparar(endpoint: 'recordatorios' | 'recalcular') {
+    const setLoading = endpoint === 'recordatorios' ? setLoadingMail : setLoadingRecalc;
+    setLoading(true);
+    try {
+      const res = await api.post(`/admin/cron/${endpoint}`);
+      const summary = JSON.stringify(res.data.data, null, 2);
+      toast.success(`Cron ejecutado:\n${summary}`, { duration: 8000 });
+    } catch (e) {
+      toast.error(apiErrorMessage(e, 'Error al disparar cron'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        Tareas programadas (manual)
+      </h3>
+      <p className="mb-4 text-xs text-neutral-500">
+        Estos endpoints normalmente corren por cron automático. Acá los podés disparar a
+        mano para testear o regenerar estado.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => disparar('recordatorios')} loading={loadingMail}>
+          <Send className="h-4 w-4" />
+          Enviar recordatorios pendientes
+        </Button>
+        <Button onClick={() => disparar('recalcular')} loading={loadingRecalc} variant="secondary">
+          <RotateCcw className="h-4 w-4" />
+          Recalcular estados de facturas
+        </Button>
+      </div>
+    </Card>
   );
 }
 
