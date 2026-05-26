@@ -21,6 +21,7 @@ use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use ITHub\Api\Services\ServiciosMetricsService;
+use ITHub\Api\Services\UsuarioService;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -159,6 +160,15 @@ return [
         $c->get(AuditoriaService::class)
     ),
     ServicioAjusteService::class => fn (ContainerInterface $c) => new ServicioAjusteService(
+        $c->get(AuditoriaService::class)
+    ),
+
+    // ============================================================
+    // Usuarios (ABM admin)
+    // ============================================================
+    UsuarioService::class => fn (ContainerInterface $c) => new UsuarioService(
+        $c,
+        $c->get(AuthService::class),
         $c->get(AuditoriaService::class)
     ),
 ];

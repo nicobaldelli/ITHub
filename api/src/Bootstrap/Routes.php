@@ -10,6 +10,7 @@ use ITHub\Api\Controllers\DashboardController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
 use ITHub\Api\Controllers\ServiciosController;
+use ITHub\Api\Controllers\UsuariosController;
 use ITHub\Api\Middleware\JwtAuthMiddleware;
 use ITHub\Api\Middleware\RateLimitMiddleware;
 use ITHub\Api\Middleware\RoleMiddleware;
@@ -128,6 +129,22 @@ final class Routes
             $g->get('/dashboard/cuotas-mes', [DashboardController::class, 'cuotasDelMes']);
             $g->get('/dashboard/ajustes-proximos', [DashboardController::class, 'ajustesProximos']);
             $g->get('/dashboard/mrr', [DashboardController::class, 'mrr']);
+
+            // ----- Usuarios (admin only) -----
+            $g->get('/usuarios', [UsuariosController::class, 'index'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->get('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'show'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/usuarios', [UsuariosController::class, 'store'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->put('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'update'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/usuarios/{id:[0-9]+}/reset-password', [UsuariosController::class, 'resetPassword'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->patch('/usuarios/{id:[0-9]+}/activar', [UsuariosController::class, 'activar'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->delete('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'destroy'])
+                ->add(new RoleMiddleware(['admin']));
         })
             ->add(new RateLimitMiddleware('general'))
             ->add(JwtAuthMiddleware::class);
