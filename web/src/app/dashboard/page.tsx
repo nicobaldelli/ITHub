@@ -9,6 +9,7 @@ import { KpiCard } from '@/components/dashboard/KpiCard';
 import { TendenciaChart } from '@/components/dashboard/TendenciaChart';
 import { AgingChart } from '@/components/dashboard/AgingChart';
 import { TopClientesChart } from '@/components/dashboard/TopClientesChart';
+import { ServiciosSection } from '@/components/dashboard/ServiciosSection';
 import { useDashboard, type Periodo } from '@/hooks/useDashboard';
 import { money } from '@/lib/format';
 
@@ -168,6 +169,9 @@ export default function DashboardPage() {
               </CardBody>
             </Card>
           </div>
+
+          {/* Sección de servicios (Chunk 9.5) */}
+          <ServiciosSection />
         </>
       )}
     </AppShell>
