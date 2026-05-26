@@ -19,7 +19,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es-AR" className={saira.variable}>
-      <body className="min-h-screen">
+      {/*
+        suppressHydrationWarning evita los avisos cuando alguna extensión
+        del browser (ColorZilla, Grammarly, etc.) inyecta atributos en el
+        body antes de que React hidrate. No afecta otras diferencias.
+      */}
+      <body className="min-h-screen" suppressHydrationWarning>
         {children}
         <Toaster
           position="top-right"
