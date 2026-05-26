@@ -8,7 +8,7 @@
 
 **Repo:** https://github.com/nicobaldelli/ITHub
 **Rama:** `master`
-**Último commit:** `89079122` — `chore(scripts): db-dump.sh y db-restore.sh`
+**Último commit:** `6beaf29` — `feat(servicios-web): chunk 9.5 - widgets de servicios en /dashboard`
 
 ### ✅ Backend completo
 - Auth JWT con refresh rotation, lockout, audit (chunk 1)
@@ -27,8 +27,15 @@
 - Next.js 14 + pnpm + Saira + Tailwind con colores corporativos
 - Login + cambiar-password con flow `must_change_password`
 - AppShell con guard de rutas, sidebar y topbar
-- Páginas: dashboard, facturas (lista con filtros), clientes (lista)
-- **Pendiente del frontend:** página de Servicios (CRUD + lista de cuotas + ajustes), forms de facturas/clientes, integración del flow "facturar cuota"
+- **Auth con sesión persistente** (fix `4feeccd`): el csrf token se lee de cookie no-HttpOnly cuando el store está vacío al reload
+- **Páginas listadas:** dashboard (incluye sección de servicios), facturas (lista con filtros), clientes (lista)
+- **Clientes CRUD UI completo** (chunk 10): listado + detalle + alta + edición + borrado con confirmación
+- **Servicios CRUD UI completo** (chunks 9.1–9.5):
+  - 9.1 Listado con filtros (tipo/estado/moneda/búsqueda)
+  - 9.2 Detalle con tabs Resumen/Cronograma/Ajustes
+  - 9.3 Alta con form dinámico (proyecto con `useFieldArray` de cuotas / mantenimiento con modo de facturación)
+  - 9.4 Modales de acciones (pausar/reanudar/cancelar/extender/eliminar/editar el servicio · facturar/omitir/cancelar cuotas · crear/aplicar/eliminar ajustes)
+  - 9.5 Sección de servicios en /dashboard con 4 cards de resumen + 2 listas
 
 ### 🚧 Pendiente del backend
 - **Chunk 8** — Cron job: rolling window de cuotas para indefinidos + recordatorios de ajustes próximos a vencer
@@ -38,11 +45,11 @@
 - **CRUD usuarios** (solo admin)
 
 ### 🚧 Pendiente del frontend (mayor)
-- Página `/servicios` (lista + detalle con tabs cronograma/ajustes/historial)
-- Forms: crear/editar servicio (proyecto vs mantenimiento)
-- Modal "Facturar cuota" desde el detalle del servicio
-- Forms de facturas y clientes (actualmente solo hay listas read-only)
-- Widgets de servicios en `/dashboard`
+- **Facturas CRUD UI**: forms de alta/edición, vista detalle, modal de check_cobranza, borrado
+- **Vista detalle de Factura**: para que el link "Ver factura" desde una cuota facturada no quede roto
+- Página/UI para Usuarios (admin)
+- Página/UI para Configuración (`/configuracion`)
+- Página/UI para Auditoría (visor)
 
 ### 🚧 Otros pendientes
 - Deploy Hostinger (doc paso a paso)
@@ -110,13 +117,16 @@ Está en `CLAUDE.md` raíz, pero recordá:
 
 ## Próximo paso recomendado al volver
 
-Chunk 7 (Dashboard de Servicios) ya está implementado — 4 endpoints separados bajo `/dashboard/*`. Próximas opciones:
+El módulo Servicios está cerrado end-to-end y Clientes tiene CRUD UI completo. Próximas opciones:
 
-**Opción A — Frontend de servicios (Chunk 9 del plan original):**
-Implementar página `/servicios` con lista + detalle + forms + modales de acciones. Consume tanto el CRUD existente como los endpoints del dashboard.
+**Opción A — Facturas CRUD UI:**
+Forms de alta/edición, vista detalle con adjuntos, modal de check_cobranza, borrado. Es el segundo módulo más usado a diario y deja el flujo "facturar una cuota → ver la factura" funcionando completo.
 
-**Opción B — Chunk 8: Cron jobs:**
-Rolling window de cuotas para mantenimientos indefinidos + recordatorios por mail (requiere también la integración SMTP).
+**Opción B — Chunk 8: Cron jobs + SMTP:**
+Rolling window de cuotas para indefinidos + recordatorios por mail. Requiere también la integración PHPMailer.
 
 **Opción C — Empezar deploy en Hostinger:**
-Documentar y scriptear el deploy del backend + frontend (Static Export).
+Documentar y scriptear el deploy del backend + frontend (Static Export). Tiene sentido si querés validar end-to-end en un entorno real.
+
+**Opción D — ABM Usuarios / Configuración / Auditoría:**
+Las 3 páginas de admin que faltan en el frontend.
