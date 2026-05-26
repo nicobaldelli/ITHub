@@ -18,6 +18,34 @@ import type { ApiErrorBody, RefreshResponse } from '@/types/api';
  */
 const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
 
+/**
+ * Nombre de la cookie csrf seteada por el backend (no-HttpOnly por diseño,
+ * double-submit pattern). Si cambia, actualizar también `api/config/settings.php`.
+ */
+const CSRF_COOKIE_NAME = 'ithub_csrf';
+
+/** Lee una cookie por nombre. Devuelve null si no existe o si estamos en SSR. */
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const prefix = name + '=';
+  for (const part of document.cookie.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length));
+    }
+  }
+  return null;
+}
+
+/**
+ * Devuelve el CSRF token vigente: primero del store (en memoria), sino
+ * de la cookie no-HttpOnly. Esto permite que el flujo de hydrate funcione
+ * después de un reload, cuando el store está vacío pero la cookie persiste.
+ */
+function getCsrfToken(): string | null {
+  return useAuthStore.getState().csrfToken ?? readCookie(CSRF_COOKIE_NAME);
+}
+
 export const api = axios.create({
   baseURL,
   withCredentials: true,
@@ -27,13 +55,13 @@ export const api = axios.create({
 
 // ----------- Request interceptor -----------
 api.interceptors.request.use((config) => {
-  const { accessToken, csrfToken } = useAuthStore.getState();
+  const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.set('Authorization', `Bearer ${accessToken}`);
   }
-  // Para endpoints que requieren cookie + CSRF (refresh, logout) mandamos también el header.
-  if (csrfToken) {
-    config.headers.set('X-CSRF-Token', csrfToken);
+  const csrf = getCsrfToken();
+  if (csrf) {
+    config.headers.set('X-CSRF-Token', csrf);
   }
   return config;
 });
@@ -46,9 +74,9 @@ async function tryRefresh(): Promise<string | null> {
 
   refreshInFlight = (async () => {
     try {
-      const { csrfToken } = useAuthStore.getState();
+      const csrf = getCsrfToken();
       const headers: Record<string, string> = {};
-      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+      if (csrf) headers['X-CSRF-Token'] = csrf;
 
       const resp = await axios.post<{ data: RefreshResponse }>(
         `${baseURL}/auth/refresh`,
