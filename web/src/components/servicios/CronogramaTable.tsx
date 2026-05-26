@@ -1,16 +1,19 @@
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { CuotaEstadoBadge } from './CuotaEstadoBadge';
+import { CuotaActions } from './CuotaActions';
 import { money, date } from '@/lib/format';
-import type { ServicioCuota } from '@/types/servicio';
+import type { Servicio, ServicioCuota } from '@/types/servicio';
 import type { Moneda } from '@/types/factura';
 
 export interface CronogramaTableProps {
   cuotas: ServicioCuota[];
   moneda: Moneda;
+  servicio?: Servicio;
+  onChanged?: () => void;
 }
 
-export function CronogramaTable({ cuotas, moneda }: CronogramaTableProps) {
+export function CronogramaTable({ cuotas, moneda, servicio, onChanged }: CronogramaTableProps) {
   if (cuotas.length === 0) {
     return (
       <div className="p-8 text-center text-sm text-neutral-500">
@@ -31,6 +34,7 @@ export function CronogramaTable({ cuotas, moneda }: CronogramaTableProps) {
             <th className="px-4 py-3 text-right font-medium">% del total</th>
             <th className="px-4 py-3 font-medium">Estado</th>
             <th className="px-4 py-3 font-medium">Factura</th>
+            {servicio && onChanged && <th className="px-4 py-3" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-100">
@@ -73,6 +77,11 @@ export function CronogramaTable({ cuotas, moneda }: CronogramaTableProps) {
                   '—'
                 )}
               </td>
+              {servicio && onChanged && (
+                <td className="px-4 py-3 text-right">
+                  <CuotaActions servicio={servicio} cuota={c} onChanged={onChanged} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

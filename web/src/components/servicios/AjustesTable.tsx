@@ -1,15 +1,18 @@
 import { Badge } from '@/components/ui/badge';
 import { money, date } from '@/lib/format';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import type { ServicioAjuste } from '@/types/servicio';
+import { AjusteRowActions } from './AjusteActions';
+import type { Servicio, ServicioAjuste } from '@/types/servicio';
 import type { Moneda } from '@/types/factura';
 
 export interface AjustesTableProps {
   ajustes: ServicioAjuste[];
   moneda: Moneda;
+  servicio?: Servicio;
+  onChanged?: () => void;
 }
 
-export function AjustesTable({ ajustes, moneda }: AjustesTableProps) {
+export function AjustesTable({ ajustes, moneda, servicio, onChanged }: AjustesTableProps) {
   if (ajustes.length === 0) {
     return (
       <div className="p-8 text-center text-sm text-neutral-500">
@@ -29,6 +32,7 @@ export function AjustesTable({ ajustes, moneda }: AjustesTableProps) {
             <th className="px-4 py-3 text-right font-medium">Importe nuevo</th>
             <th className="px-4 py-3 text-right font-medium">Variación</th>
             <th className="px-4 py-3 font-medium">Estado</th>
+            {servicio && onChanged && <th className="px-4 py-3" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-100">
@@ -77,6 +81,11 @@ export function AjustesTable({ ajustes, moneda }: AjustesTableProps) {
                     <Badge variant="warning">Pendiente</Badge>
                   )}
                 </td>
+                {servicio && onChanged && (
+                  <td className="px-4 py-3 text-right">
+                    <AjusteRowActions servicio={servicio} ajuste={a} onChanged={onChanged} />
+                  </td>
+                )}
               </tr>
             );
           })}

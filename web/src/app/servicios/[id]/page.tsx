@@ -11,6 +11,8 @@ import { EstadoBadge } from '@/components/servicios/EstadoBadge';
 import { TipoBadge } from '@/components/servicios/TipoBadge';
 import { CronogramaTable } from '@/components/servicios/CronogramaTable';
 import { AjustesTable } from '@/components/servicios/AjustesTable';
+import { ServicioActions } from '@/components/servicios/ServicioActions';
+import { CrearAjusteButton } from '@/components/servicios/AjusteActions';
 import { useServicio } from '@/hooks/useServicios';
 import { money, date } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -77,7 +79,7 @@ export default function ServicioDetallePage() {
                 )}
               </div>
             </div>
-            {/* Acciones (pausar/reanudar/cancelar/extender) en chunk 9.4 */}
+            <ServicioActions servicio={servicio} onChanged={reload} />
           </div>
 
           {/* Tabs */}
@@ -115,13 +117,30 @@ export default function ServicioDetallePage() {
           {tab === 'resumen' && <ResumenTab servicio={servicio} />}
           {tab === 'cronograma' && (
             <Card className="overflow-hidden">
-              <CronogramaTable cuotas={cuotas} moneda={servicio.moneda} />
+              <CronogramaTable
+                cuotas={cuotas}
+                moneda={servicio.moneda}
+                servicio={servicio}
+                onChanged={reload}
+              />
             </Card>
           )}
           {tab === 'ajustes' && (
-            <Card className="overflow-hidden">
-              <AjustesTable ajustes={ajustes} moneda={servicio.moneda} />
-            </Card>
+            <>
+              {servicio.tipo === 'mantenimiento' && (
+                <div className="mb-3 flex justify-end">
+                  <CrearAjusteButton servicio={servicio} cuotas={cuotas} onChanged={reload} />
+                </div>
+              )}
+              <Card className="overflow-hidden">
+                <AjustesTable
+                  ajustes={ajustes}
+                  moneda={servicio.moneda}
+                  servicio={servicio}
+                  onChanged={reload}
+                />
+              </Card>
+            </>
           )}
         </>
       )}
