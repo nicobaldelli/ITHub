@@ -13,7 +13,11 @@ import { useServicioMutations } from '@/hooks/useServicios';
 import { useAuthStore } from '@/stores/auth';
 import { money, date } from '@/lib/format';
 import { TIPOS_FACTURA } from '@/lib/cliente-schema';
-import { extractManualPlaceholders, renderTemplate } from '@/lib/template-renderer';
+import {
+  calcularPosicionEnCiclo,
+  extractManualPlaceholders,
+  renderTemplate,
+} from '@/lib/template-renderer';
 import type { Servicio, ServicioCuota } from '@/types/servicio';
 
 export interface CuotaActionsProps {
@@ -265,8 +269,27 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
   const detalleGenerado = useMemo(() => {
     if (!template) return '';
     const fechaCuota = cuota.fecha_prevista ? new Date(cuota.fecha_prevista) : new Date(fechaFactura);
-    return renderTemplate(template, { fecha: fechaCuota, inputs });
-  }, [template, cuota.fecha_prevista, fechaFactura, inputs]);
+    // Calcular pos/total del ciclo de tarifa para esta cuota
+    const { pos, total } = calcularPosicionEnCiclo(
+      fechaCuota,
+      servicio.frecuencia_ajuste_meses ?? null,
+      (servicio.cuotas ?? []).map((c) => ({
+        fecha_prevista: c.fecha_prevista,
+        estado: c.estado,
+      })),
+      (servicio.ajustes ?? []).map((a) => ({
+        fecha_aplicacion: a.fecha_aplicacion,
+        aplicado: a.aplicado,
+      })),
+      typeof servicio.fecha_inicio === 'string' ? servicio.fecha_inicio : undefined,
+    );
+    return renderTemplate(template, {
+      fecha: fechaCuota,
+      inputs,
+      posEnCiclo: pos,
+      totalCiclo: total,
+    });
+  }, [template, cuota.fecha_prevista, fechaFactura, inputs, servicio]);
 
   const detalleFinal = detalleManual ?? detalleGenerado;
 

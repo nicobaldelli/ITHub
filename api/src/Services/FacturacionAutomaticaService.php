@@ -227,19 +227,29 @@ final class FacturacionAutomaticaService
         $anio = (int) $fecha->format('Y');
         $mesNombre = self::MESES_ES[$mes] ?? '';
 
+        $posEnCiclo = $this->cuotasDesdeUltimaTarifa($servicio, $cuota);
+        $totalCiclo = $servicio->frecuencia_ajuste_meses !== null
+            ? (int) $servicio->frecuencia_ajuste_meses
+            : null;
+
         // Placeholders fijos
         $rendered = strtr($template, [
             '{MES_NOMBRE}' => $mesNombre,
             '{ANIO}' => (string) $anio,
             '{NUMERO_MES}' => (string) $mes,
-            // NUMERO_MES_DESDE_TARIFA: calcular cuotas con misma tarifa desde último ajuste
-            '{NUMERO_MES_DESDE_TARIFA}' => (string) $this->cuotasDesdeUltimaTarifa($servicio, $cuota),
+            '{NUMERO_MES_DESDE_TARIFA}' => (string) $posEnCiclo,
+            '{POS_EN_CICLO}' => (string) $posEnCiclo,
+            '{TOTAL_CICLO}' => $totalCiclo !== null ? (string) $totalCiclo : '',
         ]);
 
-        // {INPUT:nombre:default} NO se reemplaza acá — queda literal para que
-        // el admin lo complete al marcar como enviada. Pero usamos el default
-        // como hint visual: el admin verá el placeholder y entenderá.
-        // (Si querés que el default se aplique, lo activamos después.)
+        // {INPUT:nombre:default} → reemplazamos con su default. El admin
+        // puede editar el detalle al marcar como enviada si necesita
+        // un valor distinto (ej: horas extra reales del mes).
+        $rendered = preg_replace_callback(
+            '/\{INPUT:([a-zA-Z0-9_]+)(?::([^}]*))?\}/',
+            fn (array $m): string => $m[2] ?? '',
+            $rendered,
+        ) ?? $rendered;
 
         return $rendered;
     }
