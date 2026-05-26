@@ -39,6 +39,7 @@ export default function NuevoServicioPage() {
         importe_base: data.importe_base,
         iva_porcentaje: data.iva_porcentaje,
         template_factura: data.template_factura,
+        tipo_factura_default: data.tipo_factura_default,
         fecha_inicio: data.fecha_inicio,
         fecha_fin: data.fecha_fin,
         observaciones: data.observaciones,

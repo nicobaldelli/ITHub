@@ -6,6 +6,7 @@ namespace ITHub\Api\Controllers;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\AuthException;
+use ITHub\Api\Services\FacturacionAutomaticaService;
 use ITHub\Api\Services\NotificacionService;
 use ITHub\Api\Services\RollingWindowService;
 use ITHub\Api\Support\ResponseFactory;
@@ -56,6 +57,21 @@ final class CronController
     }
 
     /**
+     * Genera facturas automaticamente para cuotas cuyo fecha_prevista
+     * ya llego (estado=emitida, numero_factura placeholder AUTO-{id}).
+     */
+    public function facturarAutomatico(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $this->verifyCronTokenOrAdmin($request);
+
+        /** @var FacturacionAutomaticaService $service */
+        $service = $this->container->get(FacturacionAutomaticaService::class);
+        $resumen = $service->procesar();
+
+        return ResponseFactory::json($response, $resumen);
+    }
+
+    /**
      * Corre TODAS las tareas diarias en una sola llamada (lo que conviene
      * gatillar desde el cron de Hostinger).
      */
@@ -78,9 +94,13 @@ final class CronController
             ->where('vencimiento', '<', $hoy)
             ->update(['estado' => 'vencida']);
 
+        /** @var FacturacionAutomaticaService $facturacion */
+        $facturacion = $this->container->get(FacturacionAutomaticaService::class);
+
         return ResponseFactory::json($response, [
             'recalcular' => ['facturas_marcadas_vencidas' => $vencidas],
             'rolling_window' => $rolling->extend(),
+            'facturacion_automatica' => $facturacion->procesar(),
             'recordatorios' => $notif->dispatch(),
         ]);
     }

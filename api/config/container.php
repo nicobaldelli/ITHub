@@ -21,6 +21,7 @@ use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use ITHub\Api\Services\ExportService;
+use ITHub\Api\Services\FacturacionAutomaticaService;
 use ITHub\Api\Services\GoogleDriveService;
 use ITHub\Api\Services\MailerService;
 use ITHub\Api\Services\NotificacionService;
@@ -207,5 +208,13 @@ return [
     ExportService::class => fn (ContainerInterface $c) => new ExportService(
         $c,
         $c->get(FacturaRepository::class)
+    ),
+
+    // ============================================================
+    // Facturación automática
+    // ============================================================
+    FacturacionAutomaticaService::class => fn (ContainerInterface $c) => new FacturacionAutomaticaService(
+        $c->get(AuditoriaService::class),
+        $c->get(LoggerInterface::class),
     ),
 ];

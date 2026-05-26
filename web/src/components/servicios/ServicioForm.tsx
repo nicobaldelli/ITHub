@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { servicioCreateSchema, type ServicioCreateData } from '@/lib/servicio-schema';
+import { TIPOS_FACTURA } from '@/lib/cliente-schema';
 import { useClientesActivos } from '@/hooks/useClientes';
 
 export interface ServicioFormProps {
@@ -35,6 +36,7 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
       cliente_id: defaultClienteId ?? 0,
       moneda: 'ARS',
       iva_porcentaje: 21,
+      tipo_factura_default: 'A',
       fecha_inicio: new Date().toISOString().slice(0, 10),
       modo_facturacion: 'mes_calendario',
       dia_facturacion: 1,
@@ -127,6 +129,21 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
             <select className="input-base" {...register('moneda')}>
               <option value="ARS">ARS</option>
               <option value="USD">USD</option>
+            </select>
+          </Field>
+
+          <Field
+            label="Tipo de factura default"
+            required
+            error={errors.tipo_factura_default?.message}
+            hint="Lo usa el cron al generar facturas automáticas mes a mes"
+          >
+            <select className="input-base" {...register('tipo_factura_default')}>
+              {TIPOS_FACTURA.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
           </Field>
 

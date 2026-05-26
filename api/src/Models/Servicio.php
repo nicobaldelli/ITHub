@@ -66,6 +66,7 @@ final class Servicio extends Model
         'importe_base',
         'iva_porcentaje',
         'template_factura',
+        'tipo_factura_default',
         'fecha_inicio',
         'fecha_fin',
         'modo_facturacion',

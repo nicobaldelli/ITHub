@@ -42,6 +42,7 @@ final class Routes
         $app->post('/cron/recordatorios', [CronController::class, 'recordatorios']);
         $app->post('/cron/recalcular', [CronController::class, 'recalcular']);
         $app->post('/cron/rolling-window', [CronController::class, 'rollingWindow']);
+        $app->post('/cron/facturar-automatico', [CronController::class, 'facturarAutomatico']);
         $app->post('/cron/diario', [CronController::class, 'diario']);
 
         // ============================================================
@@ -90,6 +91,8 @@ final class Routes
             // ↑ permisos finos resueltos en el service según rol (cobranzas edita subset)
             $g->patch('/facturas/{id:[0-9]+}/check-cobranza', [FacturasController::class, 'checkCobranza'])
                 ->add(new RoleMiddleware(['admin', 'cobranzas']));
+            $g->patch('/facturas/{id:[0-9]+}/marcar-enviada', [FacturasController::class, 'marcarEnviada'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
             $g->delete('/facturas/{id:[0-9]+}', [FacturasController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
 
@@ -194,6 +197,8 @@ final class Routes
             $g->post('/admin/cron/recalcular', [CronController::class, 'recalcular'])
                 ->add(new RoleMiddleware(['admin']));
             $g->post('/admin/cron/rolling-window', [CronController::class, 'rollingWindow'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/admin/cron/facturar-automatico', [CronController::class, 'facturarAutomatico'])
                 ->add(new RoleMiddleware(['admin']));
             $g->post('/admin/cron/diario', [CronController::class, 'diario'])
                 ->add(new RoleMiddleware(['admin']));

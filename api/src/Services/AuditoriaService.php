@@ -37,6 +37,31 @@ final class AuditoriaService
         ]);
     }
 
+    /**
+     * Shortcut para acciones del sistema (cron, jobs en background)
+     * que no tienen un user ni un request asociado.
+     *
+     * @param array<string,mixed> $camposModificados
+     */
+    public function logSystem(
+        string $entidad,
+        ?int $entidadId,
+        string $accion,
+        array $camposModificados = []
+    ): Auditoria {
+        return Auditoria::create([
+            'user_id' => null,
+            'entidad' => $entidad,
+            'entidad_id' => $entidadId,
+            'accion' => $accion,
+            'campos_modificados' => $camposModificados,
+            'ip' => null,
+            'user_agent' => 'system',
+            'request_id' => null,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
     public function clientIp(ServerRequestInterface $request): string
     {
         $forwarded = $request->getHeaderLine('X-Forwarded-For');

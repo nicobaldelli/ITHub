@@ -78,7 +78,7 @@ function CronManualCard() {
   const [loading, setLoading] = useState<string | null>(null);
 
   async function disparar(
-    endpoint: 'recordatorios' | 'recalcular' | 'rolling-window' | 'diario',
+    endpoint: 'recordatorios' | 'recalcular' | 'rolling-window' | 'facturar-automatico' | 'diario',
   ) {
     setLoading(endpoint);
     try {
@@ -131,6 +131,14 @@ function CronManualCard() {
         >
           <CalendarRange className="h-4 w-4" />
           Extender cuotas indefinidas
+        </Button>
+        <Button
+          onClick={() => disparar('facturar-automatico')}
+          loading={loading === 'facturar-automatico'}
+          variant="secondary"
+        >
+          <Send className="h-4 w-4" />
+          Facturar cuotas vencidas
         </Button>
       </div>
     </Card>

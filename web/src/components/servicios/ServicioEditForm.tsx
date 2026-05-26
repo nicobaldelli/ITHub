@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { TIPOS_FACTURA } from '@/lib/cliente-schema';
 import type { Servicio } from '@/types/servicio';
 
 /**
@@ -20,6 +21,7 @@ export interface ServicioEditValues {
   descripcion: string;
   importe_base: string;
   iva_porcentaje: string;
+  tipo_factura_default: string;
   template_factura: string;
   fecha_inicio: string;
   fecha_fin: string;
@@ -44,6 +46,7 @@ function toFormValues(s: Servicio): ServicioEditValues {
     iva_porcentaje: s.iva_porcentaje !== undefined && s.iva_porcentaje !== null
       ? String(s.iva_porcentaje)
       : '21',
+    tipo_factura_default: s.tipo_factura_default ?? 'A',
     template_factura: s.template_factura ?? '',
     fecha_inicio: s.fecha_inicio?.slice(0, 10) ?? '',
     fecha_fin: s.fecha_fin?.slice(0, 10) ?? '',
@@ -104,6 +107,16 @@ export function ServicioEditForm({ servicio, onSubmit, onCancel }: ServicioEditF
               <option value="0">0%</option>
               <option value="10.5">10.5%</option>
               <option value="21">21%</option>
+            </select>
+          </Field>
+
+          <Field label="Tipo de factura default">
+            <select className="input-base" {...register('tipo_factura_default')}>
+              {TIPOS_FACTURA.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
           </Field>
 

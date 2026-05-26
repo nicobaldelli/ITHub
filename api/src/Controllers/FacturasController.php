@@ -94,6 +94,15 @@ final class FacturasController
         return ResponseFactory::json($response, $factura);
     }
 
+    public function marcarEnviada(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        /** @var User $user */
+        $user = $request->getAttribute('user');
+        $body = (array) $request->getParsedBody();
+        $factura = $this->service->marcarEnviada((int) $args['id'], $body, $user, $request);
+        return ResponseFactory::json($response, $factura);
+    }
+
     public function destroy(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
         /** @var User $user */

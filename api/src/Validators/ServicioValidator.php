@@ -68,6 +68,13 @@ final class ServicioValidator
             }
         }
 
+        // Tipo de factura default (opcional, validado contra el enum de facturas)
+        if (isset($data['tipo_factura_default']) && $data['tipo_factura_default'] !== '') {
+            if (!in_array($data['tipo_factura_default'], \ITHub\Api\Models\FacturaVenta::TIPOS, true)) {
+                $errors['tipo_factura_default'] = 'Tipo inválido';
+            }
+        }
+
         if (empty($data['fecha_inicio']) || !self::isDate((string) $data['fecha_inicio'])) {
             $errors['fecha_inicio'] = 'Requerida (formato YYYY-MM-DD)';
         }
@@ -144,6 +151,12 @@ final class ServicioValidator
             }
         }
 
+        if (array_key_exists('tipo_factura_default', $data) && $data['tipo_factura_default'] !== null && $data['tipo_factura_default'] !== '') {
+            if (!in_array($data['tipo_factura_default'], \ITHub\Api\Models\FacturaVenta::TIPOS, true)) {
+                $errors['tipo_factura_default'] = 'Tipo inválido';
+            }
+        }
+
         foreach (['fecha_inicio', 'fecha_fin'] as $f) {
             if (array_key_exists($f, $data) && $data[$f] !== null && $data[$f] !== '' && !self::isDate((string) $data[$f])) {
                 $errors[$f] = 'Fecha inválida';
@@ -193,6 +206,9 @@ final class ServicioValidator
         }
         if (array_key_exists('iva_porcentaje', $data) && $data['iva_porcentaje'] !== null && $data['iva_porcentaje'] !== '') {
             $clean['iva_porcentaje'] = (float) $data['iva_porcentaje'];
+        }
+        if (array_key_exists('tipo_factura_default', $data) && $data['tipo_factura_default'] !== null && $data['tipo_factura_default'] !== '') {
+            $clean['tipo_factura_default'] = (string) $data['tipo_factura_default'];
         }
         foreach (['fecha_inicio', 'fecha_fin'] as $f) {
             if (array_key_exists($f, $data)) {
@@ -317,6 +333,8 @@ final class ServicioValidator
             'iva_porcentaje' => isset($data['iva_porcentaje']) ? (float) $data['iva_porcentaje'] : 21.0,
             'template_factura' => isset($data['template_factura']) && trim((string) $data['template_factura']) !== ''
                 ? trim((string) $data['template_factura']) : null,
+            'tipo_factura_default' => isset($data['tipo_factura_default']) && $data['tipo_factura_default'] !== ''
+                ? (string) $data['tipo_factura_default'] : 'A',
             'fecha_inicio' => (string) $data['fecha_inicio'],
             'fecha_fin' => !empty($data['fecha_fin']) ? (string) $data['fecha_fin'] : null,
             'observaciones' => isset($data['observaciones']) && trim((string) $data['observaciones']) !== ''

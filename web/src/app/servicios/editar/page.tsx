@@ -50,6 +50,7 @@ function EditarServicioInner() {
     };
     if (data.importe_base) payload.importe_base = Number(data.importe_base);
     if (data.iva_porcentaje !== '') payload.iva_porcentaje = Number(data.iva_porcentaje);
+    if (data.tipo_factura_default) payload.tipo_factura_default = data.tipo_factura_default;
     if (data.fecha_inicio) payload.fecha_inicio = data.fecha_inicio;
     payload.fecha_fin = data.fecha_fin || null;
     if (data.dia_facturacion !== '') payload.dia_facturacion = Number(data.dia_facturacion);

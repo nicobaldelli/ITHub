@@ -50,6 +50,7 @@ export const servicioCreateSchema = z
       .trim()
       .nullish()
       .transform((v) => (v === '' || v === undefined ? null : v)),
+    tipo_factura_default: z.string().min(1, 'Requerido'),
     fecha_inicio: z.string().regex(ISO_DATE, 'Fecha inválida'),
     fecha_fin: z
       .string()

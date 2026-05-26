@@ -108,5 +108,16 @@ export function useFacturaMutations() {
     return res.data.data;
   }, []);
 
-  return { create, update, remove, toggleCheckCobranza };
+  const marcarEnviada = useCallback(
+    async (
+      id: number,
+      data: { numero_factura: string; fecha_factura: string; fecha_envio: string; tdc?: number | null },
+    ): Promise<Factura> => {
+      const res = await api.patch<ApiSuccess<Factura>>(`/facturas/${id}/marcar-enviada`, data);
+      return res.data.data;
+    },
+    [],
+  );
+
+  return { create, update, remove, toggleCheckCobranza, marcarEnviada };
 }

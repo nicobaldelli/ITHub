@@ -19,6 +19,8 @@ export interface Servicio {
   iva_porcentaje: string | number;
   /** Template del detalle que se aplica al facturar cada cuota. Soporta placeholders. */
   template_factura: string | null;
+  /** Tipo de factura que asigna el cron al generar facturas automaticas */
+  tipo_factura_default: string;
   fecha_inicio: string;
   fecha_fin: string | null;
   modo_facturacion: ModoFacturacion | null;

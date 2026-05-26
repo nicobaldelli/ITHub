@@ -172,6 +172,116 @@ final class FacturaService
         return $factura->fresh(['cliente']);
     }
 
+    /**
+     * Marca una factura como enviada al cliente. Requerido obligatoriamente:
+     *  - numero_factura definitivo (no puede empezar con "AUTO-")
+     *  - fecha_factura (fecha de emisión)
+     *  - fecha_envio
+     *  - tdc, si la factura es USD y todavía no tiene
+     *
+     * Pensado especialmente para facturas creadas automáticamente por el cron
+     * (tienen numero "AUTO-{cuota_id}" y fecha_envio NULL) pero también
+     * funciona para facturas manuales que todavía no se enviaron.
+     *
+     * @param array{numero_factura?:string, fecha_factura?:string, fecha_envio?:string, tdc?:float|string|null} $data
+     */
+    public function marcarEnviada(int $id, array $data, User $user, ServerRequestInterface $request): FacturaVenta
+    {
+        $factura = $this->facturaRepo->findById($id);
+        if ($factura === null) {
+            throw new NotFoundException('Factura no encontrada');
+        }
+
+        if ($factura->fecha_envio !== null) {
+            throw new ValidationException(
+                'La factura ya está marcada como enviada',
+                ['fecha_envio' => 'ya tiene fecha de envío']
+            );
+        }
+
+        $numero = isset($data['numero_factura']) ? trim((string) $data['numero_factura']) : '';
+        $fechaFactura = isset($data['fecha_factura']) ? (string) $data['fecha_factura'] : '';
+        $fechaEnvio = isset($data['fecha_envio']) ? (string) $data['fecha_envio'] : '';
+
+        $errors = [];
+
+        if ($numero === '' || str_starts_with($numero, 'AUTO-')) {
+            $errors['numero_factura'] = $numero === ''
+                ? 'Requerido'
+                : 'No puede empezar con "AUTO-" — usá el número definitivo de la factura emitida';
+        } elseif (mb_strlen($numero) > 50) {
+            $errors['numero_factura'] = 'Máximo 50 caracteres';
+        } elseif ($numero !== $factura->numero_factura
+            && $this->facturaRepo->existsByNumero($numero, excludeId: $id)) {
+            $errors['numero_factura'] = 'Ya existe otra factura con ese número';
+        }
+
+        if ($fechaFactura === '' || !self::isValidDate($fechaFactura)) {
+            $errors['fecha_factura'] = 'Requerida (YYYY-MM-DD)';
+        }
+        if ($fechaEnvio === '' || !self::isValidDate($fechaEnvio)) {
+            $errors['fecha_envio'] = 'Requerida (YYYY-MM-DD)';
+        }
+
+        // Si la factura es USD y no tiene TDC, el admin lo carga acá
+        $tdcEntrante = null;
+        if ($factura->moneda === 'USD' && ($factura->tdc === null || (float) $factura->tdc <= 0)) {
+            $rawTdc = $data['tdc'] ?? null;
+            if ($rawTdc === null || $rawTdc === '' || !is_numeric($rawTdc) || (float) $rawTdc <= 0) {
+                $errors['tdc'] = 'Requerido para facturas en USD (TDC del día > 0)';
+            } else {
+                $tdcEntrante = (float) $rawTdc;
+            }
+        }
+
+        if (!empty($errors)) {
+            throw new ValidationException('Datos inválidos para marcar como enviada', $errors);
+        }
+
+        $before = [
+            'numero_factura' => $factura->numero_factura,
+            'fecha_factura' => $factura->fecha_factura?->format('Y-m-d'),
+            'fecha_envio' => $factura->fecha_envio?->format('Y-m-d'),
+            'tdc' => $factura->tdc,
+            'importe_total_pesos' => $factura->importe_total_pesos,
+        ];
+
+        $factura->numero_factura = $numero;
+        $factura->fecha_factura = $fechaFactura;
+        $factura->fecha_envio = $fechaEnvio;
+
+        if ($tdcEntrante !== null) {
+            $factura->tdc = $tdcEntrante;
+            // Recalcular importe_total_pesos = importe_con_iva * tdc
+            $factura->importe_total_pesos = round((float) $factura->importe_con_iva * $tdcEntrante, 2);
+        }
+
+        $factura->updated_by = $user->id;
+        $factura->save();
+
+        $this->audit->log($user->id, 'factura', $factura->id, Auditoria::ACCION_EDITAR, [
+            'accion' => 'marcar_enviada',
+            'before' => $before,
+            'after' => [
+                'numero_factura' => $factura->numero_factura,
+                'fecha_factura' => $factura->fecha_factura?->format('Y-m-d'),
+                'fecha_envio' => $factura->fecha_envio?->format('Y-m-d'),
+                'tdc' => $factura->tdc,
+                'importe_total_pesos' => $factura->importe_total_pesos,
+            ],
+        ], $request);
+
+        return $factura->fresh(['cliente']);
+    }
+
+    private static function isValidDate(string $value): bool
+    {
+        $d = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
+        if ($d === false) return false;
+        $year = (int) $d->format('Y');
+        return $year >= 1900 && $year <= 2100;
+    }
+
     public function delete(int $id, User $user, ServerRequestInterface $request): void
     {
         $factura = $this->facturaRepo->findById($id);
