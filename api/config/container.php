@@ -20,6 +20,7 @@ use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
+use ITHub\Api\Services\GoogleDriveService;
 use ITHub\Api\Services\MailerService;
 use ITHub\Api\Services\NotificacionService;
 use ITHub\Api\Services\RollingWindowService;
@@ -188,6 +189,14 @@ return [
         $c->get(LoggerInterface::class)
     ),
     RollingWindowService::class => fn (ContainerInterface $c) => new RollingWindowService(
+        $c->get(LoggerInterface::class)
+    ),
+
+    // ============================================================
+    // Google Drive
+    // ============================================================
+    GoogleDriveService::class => fn (ContainerInterface $c) => new GoogleDriveService(
+        $c,
         $c->get(LoggerInterface::class)
     ),
 ];

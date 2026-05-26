@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITHub\Api\Bootstrap;
 
+use ITHub\Api\Controllers\ArchivosController;
 use ITHub\Api\Controllers\AuditoriaController;
 use ITHub\Api\Controllers\AuthController;
 use ITHub\Api\Controllers\ClientesController;
@@ -87,6 +88,13 @@ final class Routes
             $g->patch('/facturas/{id:[0-9]+}/check-cobranza', [FacturasController::class, 'checkCobranza'])
                 ->add(new RoleMiddleware(['admin', 'cobranzas']));
             $g->delete('/facturas/{id:[0-9]+}', [FacturasController::class, 'destroy'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Adjuntos de facturas (Google Drive) -----
+            $g->get('/facturas/{id:[0-9]+}/archivos', [ArchivosController::class, 'index']);
+            $g->post('/facturas/{id:[0-9]+}/archivos', [ArchivosController::class, 'store'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->delete('/facturas/{id:[0-9]+}/archivos/{archivoId:[0-9]+}', [ArchivosController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
 
             // ----- Servicios -----

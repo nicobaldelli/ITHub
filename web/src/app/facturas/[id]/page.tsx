@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EstadoBadge } from '@/components/facturas/EstadoBadge';
 import { FacturaActions } from '@/components/facturas/FacturaActions';
+import { AdjuntosCard } from '@/components/facturas/AdjuntosCard';
 import { useFactura } from '@/hooks/useFacturas';
 import { money, date, dateTime } from '@/lib/format';
 
@@ -199,11 +200,10 @@ export default function FacturaDetallePage() {
             )}
           </div>
 
-          {/* Adjuntos (placeholder hasta Drive integration) */}
-          <Card className="mt-4 border-dashed bg-neutral-50 p-4 text-center text-xs text-neutral-500">
-            <AlertCircle className="mx-auto mb-1 h-4 w-4 text-neutral-400" />
-            Subida de adjuntos a Google Drive — pendiente de implementar.
-          </Card>
+          {/* Adjuntos */}
+          <div className="mt-4">
+            <AdjuntosCard facturaId={factura.id} />
+          </div>
         </>
       )}
     </AppShell>
