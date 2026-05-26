@@ -122,6 +122,31 @@ export function useFacturasDeCliente(id: number | null) {
   return { data, loading, error };
 }
 
+/** Carga TODOS los clientes activos para selects/dropdowns (sin paginación). */
+export function useClientesActivos() {
+  const [data, setData] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let canceled = false;
+    setLoading(true);
+    setError(null);
+
+    api
+      .get<ApiSuccess<Cliente[]>>('/clientes?activo=true&per_page=500&sort_by=razon_social&sort_dir=asc')
+      .then((res) => !canceled && setData(res.data.data))
+      .catch((e) => !canceled && setError(apiErrorMessage(e, 'Error cargando clientes')))
+      .finally(() => !canceled && setLoading(false));
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  return { data, loading, error };
+}
+
 export function useClienteMutations() {
   const create = useCallback(async (data: ClienteFormData): Promise<Cliente> => {
     const res = await api.post<ApiSuccess<Cliente>>('/clientes', data);

@@ -85,3 +85,21 @@ export function useServicio(id: number | null) {
 
   return { data, loading, error, reload };
 }
+
+export function useServicioMutations() {
+  const create = useCallback(async (data: unknown): Promise<Servicio> => {
+    const res = await api.post<ApiSuccess<Servicio>>('/servicios', data);
+    return res.data.data;
+  }, []);
+
+  const update = useCallback(async (id: number, data: unknown): Promise<Servicio> => {
+    const res = await api.put<ApiSuccess<Servicio>>(`/servicios/${id}`, data);
+    return res.data.data;
+  }, []);
+
+  const remove = useCallback(async (id: number): Promise<void> => {
+    await api.delete(`/servicios/${id}`);
+  }, []);
+
+  return { create, update, remove };
+}

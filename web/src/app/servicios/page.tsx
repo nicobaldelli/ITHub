@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Infinity as InfinityIcon } from 'lucide-react';
+import { Search, Plus, Infinity as InfinityIcon } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,15 @@ import { Button } from '@/components/ui/button';
 import { EstadoBadge } from '@/components/servicios/EstadoBadge';
 import { TipoBadge } from '@/components/servicios/TipoBadge';
 import { useServicios, type ServiciosFilters } from '@/hooks/useServicios';
+import { useAuthStore } from '@/stores/auth';
 import { money, date } from '@/lib/format';
 
 export default function ServiciosPage() {
   const [filters, setFilters] = useState<ServiciosFilters>({ page: 1, per_page: 25 });
   const [searchInput, setSearchInput] = useState('');
   const { data, meta, loading, error } = useServicios(filters);
+  const user = useAuthStore((s) => s.user);
+  const puedeCrear = user?.rol === 'admin' || user?.rol === 'ventas';
 
   function setFilter(patch: Partial<ServiciosFilters>) {
     setFilters((f) => ({ ...f, ...patch, page: 1 }));
@@ -23,6 +26,16 @@ export default function ServiciosPage() {
 
   return (
     <AppShell title="Servicios">
+      {puedeCrear && (
+        <div className="mb-4 flex justify-end">
+          <Link href="/servicios/nuevo">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nuevo servicio
+            </Button>
+          </Link>
+        </div>
+      )}
       {/* Filtros */}
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
