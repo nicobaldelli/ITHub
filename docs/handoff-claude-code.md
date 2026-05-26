@@ -8,7 +8,7 @@
 
 **Repo:** https://github.com/nicobaldelli/ITHub
 **Rama:** `master`
-**Último commit:** `6beaf29` — `feat(servicios-web): chunk 9.5 - widgets de servicios en /dashboard`
+**Último commit:** `bdd1de1` — `feat(facturas-web): CRUD UI completo`
 
 ### ✅ Backend completo
 - Auth JWT con refresh rotation, lockout, audit (chunk 1)
@@ -44,9 +44,15 @@
 - **Export Excel/PDF/CSV** + **Import** masivo de facturas
 - **CRUD usuarios** (solo admin)
 
-### 🚧 Pendiente del frontend (mayor)
-- **Facturas CRUD UI**: forms de alta/edición, vista detalle, modal de check_cobranza, borrado
-- **Vista detalle de Factura**: para que el link "Ver factura" desde una cuota facturada no quede roto
+### ✅ Facturas CRUD UI (chunks 786d598 + bdd1de1)
+- Listado con filtros (ya existía)
+- Detalle `/facturas/[id]` con cards organizadas
+- FacturaActions: marcar/desmarcar cobrada, eliminar
+- Alta `/facturas/nueva` con autofill desde cliente seleccionado
+- Edición `/facturas/[id]/editar` con cliente bloqueado e indicador en
+  vivo del total en pesos calculado
+
+### 🚧 Pendiente del frontend
 - Página/UI para Usuarios (admin)
 - Página/UI para Configuración (`/configuracion`)
 - Página/UI para Auditoría (visor)
@@ -117,16 +123,16 @@ Está en `CLAUDE.md` raíz, pero recordá:
 
 ## Próximo paso recomendado al volver
 
-El módulo Servicios está cerrado end-to-end y Clientes tiene CRUD UI completo. Próximas opciones:
+Los tres módulos de negocio (Clientes, Servicios, Facturas) tienen CRUD UI completo. Lo grande que queda:
 
-**Opción A — Facturas CRUD UI:**
-Forms de alta/edición, vista detalle con adjuntos, modal de check_cobranza, borrado. Es el segundo módulo más usado a diario y deja el flujo "facturar una cuota → ver la factura" funcionando completo.
+**Opción A — Deploy a Hostinger:**
+Documentar y scriptear el deploy. Tiene sentido para validar end-to-end con datos reales antes de seguir agregando features. Frontend va como Static Export.
 
-**Opción B — Chunk 8: Cron jobs + SMTP:**
-Rolling window de cuotas para indefinidos + recordatorios por mail. Requiere también la integración PHPMailer.
+**Opción B — Chunk 8: Cron + SMTP + Drive:**
+Las 3 integraciones externas pendientes. Rolling window de cuotas, recordatorios por mail, adjuntos en Drive. Es la parte "infraestructura productiva".
 
-**Opción C — Empezar deploy en Hostinger:**
-Documentar y scriptear el deploy del backend + frontend (Static Export). Tiene sentido si querés validar end-to-end en un entorno real.
+**Opción C — ABM Usuarios / Configuración / Auditoría:**
+Las 3 páginas de admin que faltan en el frontend. Son simples comparado con lo ya hecho.
 
-**Opción D — ABM Usuarios / Configuración / Auditoría:**
-Las 3 páginas de admin que faltan en el frontend.
+**Opción D — Exportes (Excel/PDF/CSV) + Import histórico:**
+Funcionalidades de oficina. Pueden esperar.
