@@ -8,7 +8,7 @@
 
 **Repo:** https://github.com/nicobaldelli/ITHub
 **Rama:** `master`
-**Último commit:** `bdd1de1` — `feat(facturas-web): CRUD UI completo`
+**Último commit:** `8de1b02` — `docs: deploy a Hostinger + setup de Google Drive`
 
 ### ✅ Backend completo
 - Auth JWT con refresh rotation, lockout, audit (chunk 1)
@@ -37,25 +37,38 @@
   - 9.4 Modales de acciones (pausar/reanudar/cancelar/extender/eliminar/editar el servicio · facturar/omitir/cancelar cuotas · crear/aplicar/eliminar ajustes)
   - 9.5 Sección de servicios en /dashboard con 4 cards de resumen + 2 listas
 
-### 🚧 Pendiente del backend
-- **Chunk 8** — Cron job: rolling window de cuotas para indefinidos + recordatorios de ajustes próximos a vencer
-- **Drive integration** (upload de archivos a Drive con Service Account)
-- **Mail recordatorios** de vencimientos con PHPMailer
-- **Export Excel/PDF/CSV** + **Import** masivo de facturas
-- **CRUD usuarios** (solo admin)
+### ✅ Backend completo (todo lo de la fase MVP)
+- ABM Usuarios (admin)
+- Configuración (admin) — lectura/edición runtime de config_app
+- Auditoría (visor admin)
+- SMTP + notificaciones por mail con idempotencia (`notificaciones_enviadas`)
+- Cron diario unificado: recalcular vencidas + rolling window de
+  mantenimientos indefinidos + recordatorios. Soporta CLI y HTTP con
+  CRON_TOKEN o admin manual desde UI
+- Google Drive integration: upload/listado/borrado de adjuntos en
+  facturas. Service Account con scope drive.file, estructura
+  año/mes/cliente creada automáticamente
+- Exportes de facturas a Excel (PhpSpreadsheet), CSV (con BOM y
+  anti-CSV-injection) y PDF (Dompdf, A4 landscape)
 
-### ✅ Facturas CRUD UI (chunks 786d598 + bdd1de1)
-- Listado con filtros (ya existía)
+### 🚧 Pendiente del backend (no críticos)
+- **Import histórico**: levantar Excel/CSV masivo de facturas viejas
+  con wizard de 3 pasos (upload → preview con errores → confirm)
+
+### ✅ Facturas CRUD UI
+- Listado + filtros + 3 botones de exportar (Excel/CSV/PDF)
 - Detalle `/facturas/[id]` con cards organizadas
 - FacturaActions: marcar/desmarcar cobrada, eliminar
-- Alta `/facturas/nueva` con autofill desde cliente seleccionado
-- Edición `/facturas/[id]/editar` con cliente bloqueado e indicador en
-  vivo del total en pesos calculado
+- Alta + edición con autofill desde cliente
+- AdjuntosCard con upload/borrado a Google Drive
 
-### 🚧 Pendiente del frontend
-- Página/UI para Usuarios (admin)
-- Página/UI para Configuración (`/configuracion`)
-- Página/UI para Auditoría (visor)
+### ✅ Páginas de admin
+- `/usuarios` ABM completo con reset-password y password temporal
+- `/configuracion` editor de config_app con botones de cron manual
+- `/auditoria` visor de bitácora con filtros y detalle JSON
+
+### 🚧 Pendiente del frontend (no críticos)
+- Wizard de import histórico (cuando se haga el backend)
 
 ### 🚧 Otros pendientes
 - Deploy Hostinger (doc paso a paso)
@@ -123,16 +136,17 @@ Está en `CLAUDE.md` raíz, pero recordá:
 
 ## Próximo paso recomendado al volver
 
-Los tres módulos de negocio (Clientes, Servicios, Facturas) tienen CRUD UI completo. Lo grande que queda:
+El MVP está cerrado end-to-end. El único pendiente "feature" es el
+**import histórico** de facturas viejas (Excel/CSV masivo) — útil sólo
+si vas a migrar datos preexistentes. No es crítico para arrancar.
 
-**Opción A — Deploy a Hostinger:**
-Documentar y scriptear el deploy. Tiene sentido para validar end-to-end con datos reales antes de seguir agregando features. Frontend va como Static Export.
+Las dos opciones recomendadas para la próxima sesión son:
 
-**Opción B — Chunk 8: Cron + SMTP + Drive:**
-Las 3 integraciones externas pendientes. Rolling window de cuotas, recordatorios por mail, adjuntos en Drive. Es la parte "infraestructura productiva".
+**Opción A — Probar todo en local y deployar:**
+Seguir `docs/deploy-hostinger.md` para publicar. Configurar Google Drive
+con `docs/google-drive-setup.md`. Después de validar productivo, ahí sí
+tiene sentido agregar el import histórico.
 
-**Opción C — ABM Usuarios / Configuración / Auditoría:**
-Las 3 páginas de admin que faltan en el frontend. Son simples comparado con lo ya hecho.
-
-**Opción D — Exportes (Excel/PDF/CSV) + Import histórico:**
-Funcionalidades de oficina. Pueden esperar.
+**Opción B — Import histórico de facturas:**
+Wizard de 3 pasos: upload CSV → preview con errores por fila → confirmar.
+Útil para cargar el histórico que existe en Excel.
