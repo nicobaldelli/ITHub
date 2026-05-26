@@ -1,21 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Plus } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useClientes, type ClientesFilters } from '@/hooks/useClientes';
+import { useAuthStore } from '@/stores/auth';
 
 export default function ClientesPage() {
   const [filters, setFilters] = useState<ClientesFilters>({ page: 1, per_page: 25 });
   const [searchInput, setSearchInput] = useState('');
   const { data, meta, loading, error } = useClientes(filters);
+  const user = useAuthStore((s) => s.user);
+  const puedeCrear = user?.rol === 'admin' || user?.rol === 'ventas';
 
   return (
     <AppShell title="Clientes">
+      {puedeCrear && (
+        <div className="mb-4 flex justify-end">
+          <Link href="/clientes/nuevo">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="md:col-span-2">
@@ -83,7 +98,14 @@ export default function ClientesPage() {
               <tbody className="divide-y divide-neutral-100">
                 {data.map((c) => (
                   <tr key={c.id} className="hover:bg-neutral-50">
-                    <td className="px-4 py-3 font-medium">{c.razon_social}</td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/clientes/${c.id}`}
+                        className="font-medium text-primary-700 hover:underline"
+                      >
+                        {c.razon_social}
+                      </Link>
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{c.cuit}</td>
                     <td className="px-4 py-3 text-neutral-600">{c.mail_gestion_cobranza ?? '—'}</td>
                     <td className="px-4 py-3 text-neutral-600">{c.tipo_default ?? '—'}</td>
