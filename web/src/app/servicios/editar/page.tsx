@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,9 +16,17 @@ import { useServicio, useServicioMutations } from '@/hooks/useServicios';
 import { useAuthStore } from '@/stores/auth';
 
 export default function EditarServicioPage() {
-  const params = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<AppShell title="Editar servicio"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <EditarServicioInner />
+    </Suspense>
+  );
+}
+
+function EditarServicioInner() {
+  const params = useSearchParams();
   const router = useRouter();
-  const id = Number(params.id);
+  const id = Number(params?.get('id') ?? 0);
   const { data: servicio, loading, error } = useServicio(id);
   const { update } = useServicioMutations();
   const user = useAuthStore((s) => s.user);
@@ -33,13 +42,14 @@ export default function EditarServicioPage() {
   }
 
   async function onSubmit(data: ServicioEditValues) {
-    // Convertir strings vacíos a null y números string a number
     const payload: Record<string, unknown> = {
       nombre: data.nombre,
       descripcion: data.descripcion || null,
       observaciones: data.observaciones || null,
+      template_factura: data.template_factura || null,
     };
     if (data.importe_base) payload.importe_base = Number(data.importe_base);
+    if (data.iva_porcentaje !== '') payload.iva_porcentaje = Number(data.iva_porcentaje);
     if (data.fecha_inicio) payload.fecha_inicio = data.fecha_inicio;
     payload.fecha_fin = data.fecha_fin || null;
     if (data.dia_facturacion !== '') payload.dia_facturacion = Number(data.dia_facturacion);
@@ -52,7 +62,7 @@ export default function EditarServicioPage() {
     try {
       await update(id, payload);
       toast.success('Servicio actualizado');
-      router.push(`/servicios/${id}`);
+      router.push(`/servicios/ver?id=${id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
       throw e;
@@ -62,7 +72,7 @@ export default function EditarServicioPage() {
   return (
     <AppShell title="Editar servicio">
       <div className="mb-4">
-        <Link href={`/servicios/${id}`}>
+        <Link href={`/servicios/ver?id=${id}`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4" />
             Volver al detalle
@@ -79,7 +89,7 @@ export default function EditarServicioPage() {
         <ServicioEditForm
           servicio={servicio}
           onSubmit={onSubmit}
-          onCancel={() => router.push(`/servicios/${id}`)}
+          onCancel={() => router.push(`/servicios/ver?id=${id}`)}
         />
       )}
     </AppShell>

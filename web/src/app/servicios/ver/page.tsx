@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Infinity as InfinityIcon, Calendar, RefreshCw } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
@@ -25,16 +25,22 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'ajustes', label: 'Ajustes' },
 ];
 
-export default function ServicioDetallePage() {
-  const params = useParams<{ id: string }>();
-  const id = Number(params.id);
+export default function ServicioVerPage() {
+  return (
+    <Suspense fallback={<AppShell title="Servicio"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <ServicioVerInner />
+    </Suspense>
+  );
+}
+
+function ServicioVerInner() {
+  const params = useSearchParams();
+  const id = Number(params?.get('id') ?? 0);
   const { data: servicio, loading, error, reload } = useServicio(id);
   const [tab, setTab] = useState<Tab>('resumen');
 
   const cuotas = servicio?.cuotas ?? [];
   const ajustes = servicio?.ajustes ?? [];
-
-  // Resumen del cronograma (para el badge contador en el tab)
   const cuotasPendientes = cuotas.filter((c) => c.estado === 'pendiente').length;
   const ajustesPendientes = ajustes.filter((a) => !a.aplicado).length;
 
@@ -62,7 +68,6 @@ export default function ServicioDetallePage() {
 
       {!loading && servicio && (
         <>
-          {/* Header */}
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold">{servicio.nombre}</h1>
@@ -71,7 +76,7 @@ export default function ServicioDetallePage() {
                 <EstadoBadge estado={servicio.estado} />
                 {servicio.cliente && (
                   <Link
-                    href={`/clientes/${servicio.cliente.id}`}
+                    href={`/clientes/ver?id=${servicio.cliente.id}`}
                     className="text-neutral-500 hover:underline"
                   >
                     {servicio.cliente.razon_social}
@@ -82,7 +87,6 @@ export default function ServicioDetallePage() {
             <ServicioActions servicio={servicio} onChanged={reload} />
           </div>
 
-          {/* Tabs */}
           <div className="mb-4 flex gap-1 border-b border-neutral-200">
             {TABS.map((t) => {
               const counter =
@@ -113,7 +117,6 @@ export default function ServicioDetallePage() {
             })}
           </div>
 
-          {/* Contenido del tab */}
           {tab === 'resumen' && <ResumenTab servicio={servicio} />}
           {tab === 'cronograma' && (
             <Card className="overflow-hidden">
@@ -164,6 +167,17 @@ function ResumenTab({ servicio }: { servicio: NonNullable<ReturnType<typeof useS
           <Dt label={esMantenimiento ? 'Importe por cuota' : 'Importe total'}>
             {money(servicio.importe_base, servicio.moneda)}
           </Dt>
+          {servicio.iva_porcentaje !== undefined && servicio.iva_porcentaje !== null && (
+            <>
+              <Dt label="IVA">{`${Number(servicio.iva_porcentaje).toFixed(2)}%`}</Dt>
+              <Dt label={esMantenimiento ? 'Importe + IVA por cuota' : 'Importe total + IVA'}>
+                {money(
+                  Number(servicio.importe_base) * (1 + Number(servicio.iva_porcentaje) / 100),
+                  servicio.moneda,
+                )}
+              </Dt>
+            </>
+          )}
           <Dt label="Inicio">
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5 text-neutral-400" />
@@ -229,6 +243,22 @@ function ResumenTab({ servicio }: { servicio: NonNullable<ReturnType<typeof useS
             Descripción
           </h3>
           <p className="whitespace-pre-wrap text-sm text-neutral-700">{servicio.descripcion}</p>
+        </Card>
+      )}
+
+      {servicio.template_factura && (
+        <Card className="p-5 md:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Template de factura
+          </h3>
+          <pre className="whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 font-sans text-sm text-neutral-700">
+            {servicio.template_factura}
+          </pre>
+          <p className="mt-2 text-xs text-neutral-500">
+            Se aplica como detalle al facturar cada cuota. Placeholders: {'{MES_NOMBRE}'}, {'{ANIO}'},
+            {' '}{'{NUMERO_MES}'}, {'{NUMERO_MES_DESDE_TARIFA}'}, y {'{INPUT:nombre:default}'} para
+            valores que se cargan manualmente al facturar.
+          </p>
         </Card>
       )}
 

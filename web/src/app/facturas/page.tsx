@@ -208,7 +208,7 @@ export default function FacturasPage() {
                   <tr key={f.id} className="hover:bg-neutral-50">
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">
                       <Link
-                        href={`/facturas/${f.id}`}
+                        href={`/facturas/ver?id=${f.id}`}
                         className="text-primary-700 hover:underline"
                       >
                         {f.numero_factura}

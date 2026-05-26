@@ -19,6 +19,8 @@ export interface ServicioEditValues {
   nombre: string;
   descripcion: string;
   importe_base: string;
+  iva_porcentaje: string;
+  template_factura: string;
   fecha_inicio: string;
   fecha_fin: string;
   dia_facturacion: string;
@@ -39,6 +41,10 @@ function toFormValues(s: Servicio): ServicioEditValues {
     nombre: s.nombre,
     descripcion: s.descripcion ?? '',
     importe_base: String(s.importe_base ?? ''),
+    iva_porcentaje: s.iva_porcentaje !== undefined && s.iva_porcentaje !== null
+      ? String(s.iva_porcentaje)
+      : '21',
+    template_factura: s.template_factura ?? '',
     fecha_inicio: s.fecha_inicio?.slice(0, 10) ?? '',
     fecha_fin: s.fecha_fin?.slice(0, 10) ?? '',
     dia_facturacion: s.dia_facturacion !== null ? String(s.dia_facturacion) : '',
@@ -83,8 +89,22 @@ export function ServicioEditForm({ servicio, onSubmit, onCancel }: ServicioEditF
             <Textarea rows={2} {...register('descripcion')} />
           </Field>
 
-          <Field label={`Importe base (${servicio.moneda})`}>
+          <Field
+            label={
+              esMantenimiento
+                ? `Importe por cuota (${servicio.moneda}, sin IVA)`
+                : `Importe total proyecto (${servicio.moneda}, sin IVA)`
+            }
+          >
             <Input type="number" step="0.01" min={0} {...register('importe_base')} />
+          </Field>
+
+          <Field label="IVA (%)">
+            <select className="input-base" {...register('iva_porcentaje')}>
+              <option value="0">0%</option>
+              <option value="10.5">10.5%</option>
+              <option value="21">21%</option>
+            </select>
           </Field>
 
           <Field label="Fecha de inicio">
@@ -133,6 +153,22 @@ export function ServicioEditForm({ servicio, onSubmit, onCancel }: ServicioEditF
           </div>
         </Card>
       )}
+
+      <Card className="p-5">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          Template de factura
+        </h3>
+        <Field
+          label="Detalle automático para cada cuota"
+          hint="Placeholders: {MES_NOMBRE}, {ANIO}, {NUMERO_MES}, {NUMERO_MES_DESDE_TARIFA}, y {INPUT:nombre:default} para inputs manuales al facturar."
+        >
+          <Textarea
+            rows={4}
+            {...register('template_factura')}
+            placeholder={`Servicio de soporte. Mes {MES_NOMBRE} {ANIO}. {INPUT:horas_extra:0} horas extra.`}
+          />
+        </Field>
+      </Card>
 
       <Card className="p-5">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">

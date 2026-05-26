@@ -30,7 +30,7 @@ export default function NuevaFacturaPage() {
     try {
       const factura = await create(data);
       toast.success('Factura creada');
-      router.push(`/facturas/${factura.id}`);
+      router.push(`/facturas/ver?id=${factura.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo crear la factura');
       throw e;

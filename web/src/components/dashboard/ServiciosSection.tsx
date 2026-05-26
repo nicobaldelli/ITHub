@@ -252,7 +252,7 @@ function CuotasMesList({ data }: { data: CuotasMesData | null }) {
         <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
           <div className="min-w-0 flex-1">
             <Link
-              href={`/servicios/${c.servicio_id}`}
+              href={`/servicios/ver?id=${c.servicio_id}`}
               className="block truncate font-medium text-primary-700 hover:underline"
             >
               {c.servicio_nombre}
@@ -293,7 +293,7 @@ function AjustesList({ data }: { data: AjustesProximosData | null }) {
           <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
             <div className="min-w-0 flex-1">
               <Link
-                href={`/servicios/${a.servicio_id}`}
+                href={`/servicios/ver?id=${a.servicio_id}`}
                 className="block truncate font-medium text-primary-700 hover:underline"
               >
                 {a.servicio_nombre}

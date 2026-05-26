@@ -15,6 +15,10 @@ export interface Servicio {
   descripcion: string | null;
   moneda: Moneda;
   importe_base: string;
+  /** Alícuota de IVA: 0, 10.5 o 21 */
+  iva_porcentaje: string | number;
+  /** Template del detalle que se aplica al facturar cada cuota. Soporta placeholders. */
+  template_factura: string | null;
   fecha_inicio: string;
   fecha_fin: string | null;
   modo_facturacion: ModoFacturacion | null;

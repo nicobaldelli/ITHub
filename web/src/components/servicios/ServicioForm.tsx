@@ -34,6 +34,7 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
       tipo: 'mantenimiento',
       cliente_id: defaultClienteId ?? 0,
       moneda: 'ARS',
+      iva_porcentaje: 21,
       fecha_inicio: new Date().toISOString().slice(0, 10),
       modo_facturacion: 'mes_calendario',
       dia_facturacion: 1,
@@ -44,6 +45,10 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
   const tipo = watch('tipo');
   const modo = watch('modo_facturacion');
   const moneda = watch('moneda');
+  const importeBase = watch('importe_base');
+  const ivaPct = watch('iva_porcentaje');
+  const importeConIva =
+    Number(importeBase || 0) * (1 + Number(ivaPct || 0) / 100);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'cuotas' });
   const cuotas = watch('cuotas') ?? [];
@@ -126,7 +131,11 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
           </Field>
 
           <Field
-            label={tipo === 'proyecto' ? 'Importe total del proyecto' : 'Importe por cuota'}
+            label={
+              tipo === 'proyecto'
+                ? `Importe total proyecto (${moneda}, sin IVA)`
+                : `Importe por cuota (${moneda}, sin IVA)`
+            }
             required
             error={errors.importe_base?.message}
           >
@@ -136,6 +145,31 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
               min={0}
               {...register('importe_base')}
               placeholder="0.00"
+            />
+          </Field>
+
+          <Field label="IVA (%)" required error={errors.iva_porcentaje?.message}>
+            <select className="input-base" {...register('iva_porcentaje')}>
+              <option value="0">0%</option>
+              <option value="10.5">10.5%</option>
+              <option value="21">21%</option>
+            </select>
+          </Field>
+
+          <Field
+            label={`Importe + IVA (${moneda}, calculado)`}
+            hint="Se calcula en base al importe sin IVA × (1 + IVA%). No editable."
+            className="md:col-span-2"
+          >
+            <Input
+              type="text"
+              readOnly
+              tabIndex={-1}
+              className="bg-neutral-50 font-mono"
+              value={importeConIva.toLocaleString('es-AR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             />
           </Field>
 
@@ -310,6 +344,32 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
           </p>
         </Card>
       )}
+
+      {/* ============ Template de factura ============ */}
+      <Card className="p-5">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+          Template de factura
+        </h3>
+        <Field
+          label="Detalle automático para cada cuota"
+          hint="Placeholders: {MES_NOMBRE}, {ANIO}, {NUMERO_MES}, {NUMERO_MES_DESDE_TARIFA}, y {INPUT:nombre:default} para inputs manuales al facturar."
+          error={errors.template_factura?.message}
+        >
+          <Controller
+            control={control}
+            name="template_factura"
+            render={({ field }) => (
+              <Textarea
+                rows={4}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                placeholder={`Servicio de soporte. Mes {MES_NOMBRE} {ANIO}. {INPUT:horas_extra:0} horas extra.`}
+              />
+            )}
+          />
+        </Field>
+      </Card>
 
       {/* ============ Observaciones ============ */}
       <Card className="p-5">

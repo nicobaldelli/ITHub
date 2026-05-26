@@ -100,7 +100,7 @@ export default function ClientesPage() {
                   <tr key={c.id} className="hover:bg-neutral-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/clientes/${c.id}`}
+                        href={`/clientes/ver?id=${c.id}`}
                         className="font-medium text-primary-700 hover:underline"
                       >
                         {c.razon_social}

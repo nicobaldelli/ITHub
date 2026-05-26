@@ -42,6 +42,14 @@ export const servicioCreateSchema = z
       .transform((v) => (v === '' || v === undefined ? null : v)),
     moneda: z.enum(['ARS', 'USD']),
     importe_base: z.coerce.number({ invalid_type_error: 'Número' }).gt(0, 'Mayor a 0'),
+    iva_porcentaje: z.coerce
+      .number()
+      .refine((v) => v === 0 || v === 10.5 || v === 21, 'Permitidos: 0, 10.5 o 21'),
+    template_factura: z
+      .string()
+      .trim()
+      .nullish()
+      .transform((v) => (v === '' || v === undefined ? null : v)),
     fecha_inicio: z.string().regex(ISO_DATE, 'Fecha inválida'),
     fecha_fin: z
       .string()

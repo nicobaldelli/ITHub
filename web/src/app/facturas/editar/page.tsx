@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,9 +14,17 @@ import { useAuthStore } from '@/stores/auth';
 import type { FacturaFormData } from '@/lib/factura-schema';
 
 export default function EditarFacturaPage() {
-  const params = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<AppShell title="Editar factura"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <EditarFacturaInner />
+    </Suspense>
+  );
+}
+
+function EditarFacturaInner() {
+  const params = useSearchParams();
   const router = useRouter();
-  const id = Number(params.id);
+  const id = Number(params?.get('id') ?? 0);
   const { data: factura, loading, error } = useFactura(id);
   const { update } = useFacturaMutations();
   const user = useAuthStore((s) => s.user);
@@ -39,7 +48,7 @@ export default function EditarFacturaPage() {
     try {
       await update(id, data);
       toast.success('Factura actualizada');
-      router.push(`/facturas/${id}`);
+      router.push(`/facturas/ver?id=${id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
       throw e;
@@ -49,7 +58,7 @@ export default function EditarFacturaPage() {
   return (
     <AppShell title="Editar factura">
       <div className="mb-4">
-        <Link href={`/facturas/${id}`}>
+        <Link href={`/facturas/ver?id=${id}`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4" />
             Volver al detalle
@@ -66,7 +75,7 @@ export default function EditarFacturaPage() {
         <FacturaForm
           initial={factura}
           onSubmit={onSubmit}
-          onCancel={() => router.push(`/facturas/${id}`)}
+          onCancel={() => router.push(`/facturas/ver?id=${id}`)}
           submitLabel="Guardar cambios"
           isUpdate
           lockCliente

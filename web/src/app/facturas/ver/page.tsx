@@ -1,8 +1,9 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { ArrowLeft, RefreshCw, CheckCircle2, FileText } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,9 +14,17 @@ import { AdjuntosCard } from '@/components/facturas/AdjuntosCard';
 import { useFactura } from '@/hooks/useFacturas';
 import { money, date, dateTime } from '@/lib/format';
 
-export default function FacturaDetallePage() {
-  const params = useParams<{ id: string }>();
-  const id = Number(params.id);
+export default function FacturaVerPage() {
+  return (
+    <Suspense fallback={<AppShell title="Factura"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <FacturaVerInner />
+    </Suspense>
+  );
+}
+
+function FacturaVerInner() {
+  const params = useSearchParams();
+  const id = Number(params?.get('id') ?? 0);
   const { data: factura, loading, error, reload } = useFactura(id);
 
   return (
@@ -42,7 +51,6 @@ export default function FacturaDetallePage() {
 
       {!loading && factura && (
         <>
-          {/* Header */}
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="flex items-center gap-3 text-2xl font-semibold">
@@ -60,18 +68,20 @@ export default function FacturaDetallePage() {
                 )}
                 {factura.cliente && (
                   <Link
-                    href={`/clientes/${factura.cliente.id}`}
+                    href={`/clientes/ver?id=${factura.cliente.id}`}
                     className="text-neutral-500 hover:underline"
                   >
                     {factura.cliente.razon_social}
                   </Link>
+                )}
+                {factura.servicio_cuota_id && (
+                  <Badge variant="primary">Cuota de servicio</Badge>
                 )}
               </div>
             </div>
             <FacturaActions factura={factura} onChanged={reload} />
           </div>
 
-          {/* Datos de la factura */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -111,7 +121,6 @@ export default function FacturaDetallePage() {
               </Dl>
             </Card>
 
-            {/* Cobranza */}
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
                 Cobranza
@@ -138,7 +147,6 @@ export default function FacturaDetallePage() {
               </Dl>
             </Card>
 
-            {/* Datos bancarios */}
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
                 Datos bancarios
@@ -154,7 +162,6 @@ export default function FacturaDetallePage() {
               </Dl>
             </Card>
 
-            {/* Contactos */}
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
                 Envío de factura (snapshot)
@@ -200,7 +207,6 @@ export default function FacturaDetallePage() {
             )}
           </div>
 
-          {/* Adjuntos */}
           <div className="mt-4">
             <AdjuntosCard facturaId={factura.id} />
           </div>

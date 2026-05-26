@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,9 +14,17 @@ import { useAuthStore } from '@/stores/auth';
 import type { UsuarioCreateData, UsuarioUpdateData } from '@/lib/usuario-schema';
 
 export default function EditarUsuarioPage() {
-  const params = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<AppShell title="Editar usuario"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <EditarUsuarioInner />
+    </Suspense>
+  );
+}
+
+function EditarUsuarioInner() {
+  const params = useSearchParams();
   const router = useRouter();
-  const id = Number(params.id);
+  const id = Number(params?.get('id') ?? 0);
   const { data: usuario, loading, error } = useUsuario(id);
   const { update } = useUsuarioMutations();
   const yo = useAuthStore((s) => s.user);

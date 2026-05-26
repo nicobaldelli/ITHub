@@ -269,7 +269,7 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
       // Si tenemos el id de la factura, ofrecer redirigir? Por ahora solo recarga.
       const id = (factura as { id?: number })?.id;
       if (id) {
-        router.push(`/facturas/${id}`);
+        router.push(`/facturas/ver?id=${id}`);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo facturar');

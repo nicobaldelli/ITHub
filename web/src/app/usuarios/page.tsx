@@ -155,7 +155,7 @@ export default function UsuariosPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Link href={`/usuarios/${u.id}/editar`}>
+                          <Link href={`/usuarios/editar?id=${u.id}`}>
                             <Button variant="ghost" size="sm" title="Editar">
                               <Pencil className="h-4 w-4" />
                             </Button>

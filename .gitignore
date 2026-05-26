@@ -84,3 +84,4 @@ docker/mysql-data/
 backups/
 *.sql.gz
 *.sql.gpg
+web/.env.production

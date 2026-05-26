@@ -67,7 +67,7 @@ export function ServicioActions({ servicio, onChanged }: ServicioActionsProps) {
           </Button>
         )}
         {puedeEditar && (
-          <Link href={`/servicios/${servicio.id}/editar`}>
+          <Link href={`/servicios/editar?id=${servicio.id}`}>
             <Button variant="secondary" size="sm">
               <Pencil className="h-4 w-4" />
               Editar

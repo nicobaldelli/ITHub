@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,10 +15,18 @@ import { useCliente, useFacturasDeCliente, useClienteMutations } from '@/hooks/u
 import { useAuthStore } from '@/stores/auth';
 import { date, money } from '@/lib/format';
 
-export default function ClienteDetallePage() {
-  const params = useParams<{ id: string }>();
+export default function ClienteVerPage() {
+  return (
+    <Suspense fallback={<AppShell title="Cliente"><Card className="p-8 text-center text-neutral-500">Cargando…</Card></AppShell>}>
+      <ClienteVerInner />
+    </Suspense>
+  );
+}
+
+function ClienteVerInner() {
+  const params = useSearchParams();
   const router = useRouter();
-  const id = Number(params.id);
+  const id = Number(params?.get('id') ?? 0);
   const { data: cliente, loading, error } = useCliente(id);
   const { data: facturas, loading: loadingFacturas } = useFacturasDeCliente(id);
   const { remove } = useClienteMutations();
@@ -34,10 +42,10 @@ export default function ClienteDetallePage() {
     setDeleting(true);
     try {
       await remove(cliente.id);
-      toast.success('Cliente eliminado');
+      toast.success('Cliente archivado');
       router.push('/clientes');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast.error(e instanceof Error ? e.message : 'No se pudo archivar');
       setDeleting(false);
     }
   }
@@ -62,7 +70,6 @@ export default function ClienteDetallePage() {
 
       {!loading && cliente && (
         <>
-          {/* Header con acciones */}
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold">{cliente.razon_social}</h1>
@@ -75,7 +82,7 @@ export default function ClienteDetallePage() {
             </div>
             <div className="flex gap-2">
               {puedeEditar && (
-                <Link href={`/clientes/${cliente.id}/editar`}>
+                <Link href={`/clientes/editar?id=${cliente.id}`}>
                   <Button variant="secondary">
                     <Pencil className="h-4 w-4" />
                     Editar
@@ -85,13 +92,12 @@ export default function ClienteDetallePage() {
               {puedeEliminar && (
                 <Button variant="danger" onClick={() => setConfirmOpen(true)}>
                   <Trash2 className="h-4 w-4" />
-                  Eliminar
+                  Archivar
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Grids de datos */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -156,7 +162,6 @@ export default function ClienteDetallePage() {
             )}
           </div>
 
-          {/* Facturas recientes */}
           <Card className="mt-4 overflow-hidden">
             <div className="border-b border-neutral-100 px-5 py-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -187,7 +192,9 @@ export default function ClienteDetallePage() {
                     {facturas.map((f) => (
                       <tr key={f.id}>
                         <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">
-                          {f.numero_factura}
+                          <Link href={`/facturas/ver?id=${f.id}`} className="text-primary-700 hover:underline">
+                            {f.numero_factura}
+                          </Link>
                         </td>
                         <td className="whitespace-nowrap px-4 py-2 text-neutral-600">
                           {date(f.fecha_factura)}
@@ -211,19 +218,18 @@ export default function ClienteDetallePage() {
         </>
       )}
 
-      {/* Confirmación de borrado */}
       <Dialog
         open={confirmOpen}
         onClose={() => !deleting && setConfirmOpen(false)}
-        title="Eliminar cliente"
+        title="Archivar cliente"
         size="sm"
       >
         <p className="text-sm text-neutral-700">
-          ¿Seguro que querés eliminar al cliente <strong>{cliente?.razon_social}</strong>?
+          ¿Archivar al cliente <strong>{cliente?.razon_social}</strong>?
         </p>
         <p className="mt-2 text-xs text-neutral-500">
-          Es un borrado lógico: el cliente desaparece de los listados pero las facturas
-          asociadas se mantienen.
+          El cliente desaparece de los listados pero sus datos se conservan. Lo podés ver
+          o restaurar desde <strong>/archivados</strong>.
         </p>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={deleting}>
@@ -231,7 +237,7 @@ export default function ClienteDetallePage() {
           </Button>
           <Button variant="danger" onClick={handleDelete} loading={deleting}>
             <Trash2 className="h-4 w-4" />
-            Eliminar
+            Archivar
           </Button>
         </DialogFooter>
       </Dialog>

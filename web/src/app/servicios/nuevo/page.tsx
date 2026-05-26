@@ -37,6 +37,8 @@ export default function NuevoServicioPage() {
         descripcion: data.descripcion,
         moneda: data.moneda,
         importe_base: data.importe_base,
+        iva_porcentaje: data.iva_porcentaje,
+        template_factura: data.template_factura,
         fecha_inicio: data.fecha_inicio,
         fecha_fin: data.fecha_fin,
         observaciones: data.observaciones,
@@ -53,7 +55,7 @@ export default function NuevoServicioPage() {
 
       const servicio = await create(payload);
       toast.success('Servicio creado');
-      router.push(`/servicios/${servicio.id}`);
+      router.push(`/servicios/ver?id=${servicio.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo crear el servicio');
       throw e;

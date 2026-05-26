@@ -64,6 +64,8 @@ final class Servicio extends Model
         'descripcion',
         'moneda',
         'importe_base',
+        'iva_porcentaje',
+        'template_factura',
         'fecha_inicio',
         'fecha_fin',
         'modo_facturacion',
@@ -81,6 +83,7 @@ final class Servicio extends Model
     protected $casts = [
         'cliente_id' => 'integer',
         'importe_base' => 'decimal:2',
+        'iva_porcentaje' => 'decimal:2',
         'fecha_inicio' => 'date',
         'fecha_fin' => 'date',
         'dia_facturacion' => 'integer',

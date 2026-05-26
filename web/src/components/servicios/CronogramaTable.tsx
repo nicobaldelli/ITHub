@@ -67,7 +67,7 @@ export function CronogramaTable({ cuotas, moneda, servicio, onChanged }: Cronogr
               <td className="px-4 py-3">
                 {c.factura_id ? (
                   <Link
-                    href={`/facturas/${c.factura_id}`}
+                    href={`/facturas/ver?id=${c.factura_id}`}
                     className="inline-flex items-center gap-1 text-xs text-primary-700 hover:underline"
                   >
                     Ver factura

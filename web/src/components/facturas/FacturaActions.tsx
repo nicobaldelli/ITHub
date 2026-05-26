@@ -84,7 +84,7 @@ export function FacturaActions({ factura, onChanged }: FacturaActionsProps) {
           </Button>
         )}
         {puedeEditar && (
-          <Link href={`/facturas/${factura.id}/editar`}>
+          <Link href={`/facturas/editar?id=${factura.id}`}>
             <Button variant="secondary" size="sm">
               <Pencil className="h-4 w-4" />
               Editar

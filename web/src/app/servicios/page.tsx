@@ -136,7 +136,7 @@ export default function ServiciosPage() {
                   <tr key={s.id} className="hover:bg-neutral-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/servicios/${s.id}`}
+                        href={`/servicios/ver?id=${s.id}`}
                         className="font-medium text-primary-700 hover:underline"
                       >
                         {s.nombre}

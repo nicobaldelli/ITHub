@@ -60,6 +60,14 @@ final class ServicioValidator
             $errors['importe_base'] = 'Requerido, mayor a 0';
         }
 
+        // IVA: 0, 10.5 o 21
+        if (isset($data['iva_porcentaje'])) {
+            $iva = (float) $data['iva_porcentaje'];
+            if (!in_array($iva, [0.0, 10.5, 21.0], true)) {
+                $errors['iva_porcentaje'] = 'Permitidos: 0, 10.5 o 21';
+            }
+        }
+
         if (empty($data['fecha_inicio']) || !self::isDate((string) $data['fecha_inicio'])) {
             $errors['fecha_inicio'] = 'Requerida (formato YYYY-MM-DD)';
         }
@@ -93,8 +101,8 @@ final class ServicioValidator
             }
         }
 
-        // Anti-script en descripcion/observaciones
-        foreach (['descripcion', 'observaciones'] as $f) {
+        // Anti-script en descripcion/observaciones/template_factura
+        foreach (['descripcion', 'observaciones', 'template_factura'] as $f) {
             if (isset($data[$f]) && is_string($data[$f])
                 && preg_match('/<\s*(script|iframe|object|embed)\b/i', $data[$f])) {
                 $errors[$f] = 'Contenido no permitido';
@@ -127,6 +135,13 @@ final class ServicioValidator
         if (array_key_exists('importe_base', $data)
             && (!is_numeric($data['importe_base']) || (float) $data['importe_base'] <= 0)) {
             $errors['importe_base'] = 'Debe ser numérico y > 0';
+        }
+
+        if (array_key_exists('iva_porcentaje', $data) && $data['iva_porcentaje'] !== null && $data['iva_porcentaje'] !== '') {
+            $iva = (float) $data['iva_porcentaje'];
+            if (!in_array($iva, [0.0, 10.5, 21.0], true)) {
+                $errors['iva_porcentaje'] = 'Permitidos: 0, 10.5 o 21';
+            }
         }
 
         foreach (['fecha_inicio', 'fecha_fin'] as $f) {
@@ -166,7 +181,7 @@ final class ServicioValidator
         }
 
         $clean = [];
-        $stringFields = ['nombre', 'descripcion', 'observaciones'];
+        $stringFields = ['nombre', 'descripcion', 'observaciones', 'template_factura'];
         foreach ($stringFields as $f) {
             if (array_key_exists($f, $data)) {
                 $v = is_string($data[$f]) ? trim($data[$f]) : $data[$f];
@@ -175,6 +190,9 @@ final class ServicioValidator
         }
         if (array_key_exists('importe_base', $data)) {
             $clean['importe_base'] = (float) $data['importe_base'];
+        }
+        if (array_key_exists('iva_porcentaje', $data) && $data['iva_porcentaje'] !== null && $data['iva_porcentaje'] !== '') {
+            $clean['iva_porcentaje'] = (float) $data['iva_porcentaje'];
         }
         foreach (['fecha_inicio', 'fecha_fin'] as $f) {
             if (array_key_exists($f, $data)) {
@@ -296,6 +314,9 @@ final class ServicioValidator
                 ? trim((string) $data['descripcion']) : null,
             'moneda' => $data['moneda'] ?? 'ARS',
             'importe_base' => (float) $data['importe_base'],
+            'iva_porcentaje' => isset($data['iva_porcentaje']) ? (float) $data['iva_porcentaje'] : 21.0,
+            'template_factura' => isset($data['template_factura']) && trim((string) $data['template_factura']) !== ''
+                ? trim((string) $data['template_factura']) : null,
             'fecha_inicio' => (string) $data['fecha_inicio'],
             'fecha_fin' => !empty($data['fecha_fin']) ? (string) $data['fecha_fin'] : null,
             'observaciones' => isset($data['observaciones']) && trim((string) $data['observaciones']) !== ''
