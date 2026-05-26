@@ -7,6 +7,8 @@ namespace ITHub\Api\Controllers;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\NotFoundException;
 use ITHub\Api\Models\Auditoria;
+use ITHub\Api\Models\Servicio;
+use ITHub\Api\Models\ServicioCuota;
 use ITHub\Api\Models\User;
 use ITHub\Api\Repositories\FacturaRepository;
 use ITHub\Api\Services\FacturaService;
@@ -98,5 +100,36 @@ final class FacturasController
         $user = $request->getAttribute('user');
         $this->service->delete((int) $args['id'], $user, $request);
         return ResponseFactory::noContent($response);
+    }
+
+    /**
+     * GET /cuotas-facturables?cliente_id=N
+     *
+     * Devuelve cuotas pendientes de servicios activos, filtradas opcionalmente
+     * por cliente. Usado por /facturas/nueva para que el usuario elija cuota
+     * cuando hace alta manual.
+     */
+    public function cuotasFacturables(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $params = $request->getQueryParams();
+        $clienteId = isset($params['cliente_id']) && $params['cliente_id'] !== ''
+            ? (int) $params['cliente_id']
+            : null;
+
+        $q = ServicioCuota::query()
+            ->with(['servicio:id,nombre,cliente_id,tipo,moneda,iva_porcentaje,template_factura', 'servicio.cliente:id,razon_social,cuit'])
+            ->where('estado', ServicioCuota::ESTADO_PENDIENTE)
+            ->whereHas('servicio', function ($s) use ($clienteId): void {
+                $s->where('estado', Servicio::ESTADO_ACTIVO)
+                  ->whereNull('deleted_at');
+                if ($clienteId !== null) {
+                    $s->where('cliente_id', $clienteId);
+                }
+            })
+            ->orderBy('fecha_prevista', 'asc')
+            ->limit(500)
+            ->get();
+
+        return ResponseFactory::json($response, $q);
     }
 }

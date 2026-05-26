@@ -80,6 +80,7 @@ final class Routes
                 ->add(new RoleMiddleware(['admin']));
 
             // ----- Facturas -----
+            $g->get('/cuotas-facturables', [FacturasController::class, 'cuotasFacturables']);
             $g->get('/facturas', [FacturasController::class, 'index']);
             $g->get('/facturas/{id:[0-9]+}', [FacturasController::class, 'show']);
             $g->get('/facturas/{id:[0-9]+}/historial', [FacturasController::class, 'historial']);

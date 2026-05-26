@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save, X } from 'lucide-react';
+import { Save, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,28 @@ import { Card } from '@/components/ui/card';
 import { facturaSchema, type FacturaFormData } from '@/lib/factura-schema';
 import { TIPOS_FACTURA } from '@/lib/cliente-schema';
 import { useClientesActivos } from '@/hooks/useClientes';
+import { api, apiErrorMessage } from '@/lib/api';
+import type { ApiSuccess } from '@/types/api';
 import type { Factura } from '@/types/factura';
+import { date } from '@/lib/format';
+
+interface CuotaFacturable {
+  id: number;
+  numero_cuota: number;
+  etiqueta: string | null;
+  fecha_prevista: string;
+  importe: string | number;
+  servicio: {
+    id: number;
+    nombre: string;
+    cliente_id: number;
+    tipo: string;
+    moneda: 'ARS' | 'USD';
+    iva_porcentaje: string | number;
+    template_factura: string | null;
+    cliente: { id: number; razon_social: string; cuit: string };
+  };
+}
 
 export interface FacturaFormProps {
   initial?: Partial<Factura>;
@@ -96,6 +117,54 @@ export function FacturaForm({
   const importeConIva = watch('importe_con_iva');
   const importeTotalPesos = watch('importe_total_pesos');
   const clienteId = watch('cliente_id');
+  const servicioCuotaId = watch('servicio_cuota_id');
+
+  // Cuotas facturables (solo en alta, no en edición)
+  const [cuotas, setCuotas] = useState<CuotaFacturable[]>([]);
+  const [loadingCuotas, setLoadingCuotas] = useState(false);
+  const [cuotasError, setCuotasError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isUpdate) return;
+    if (!clienteId || Number(clienteId) === 0) {
+      setCuotas([]);
+      return;
+    }
+    let cancel = false;
+    setLoadingCuotas(true);
+    setCuotasError(null);
+    api
+      .get<ApiSuccess<CuotaFacturable[]>>(`/cuotas-facturables?cliente_id=${clienteId}`)
+      .then((res) => !cancel && setCuotas(res.data.data))
+      .catch((e) => !cancel && setCuotasError(apiErrorMessage(e, 'Error cargando cuotas')))
+      .finally(() => !cancel && setLoadingCuotas(false));
+    return () => {
+      cancel = true;
+    };
+  }, [clienteId, isUpdate]);
+
+  // Autofill desde la cuota seleccionada (solo alta)
+  useEffect(() => {
+    if (isUpdate) return;
+    if (!servicioCuotaId) return;
+    const cuota = cuotas.find((c) => c.id === Number(servicioCuotaId));
+    if (!cuota) return;
+    const importeBase = Number(cuota.importe);
+    const ivaPct = Number(cuota.servicio.iva_porcentaje);
+    const conIva = importeBase * (1 + ivaPct / 100);
+    setValue('importe_sin_iva', importeBase);
+    setValue('importe_con_iva', Number(conIva.toFixed(2)));
+    setValue('moneda', cuota.servicio.moneda);
+    setValue(
+      'detalle_factura',
+      cuota.servicio.template_factura ?? `${cuota.servicio.nombre} — ${cuota.etiqueta ?? 'Cuota ' + cuota.numero_cuota}`,
+    );
+    setValue(
+      'mes_cubierto',
+      cuota.etiqueta ?? '',
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicioCuotaId, cuotas.length]);
 
   // Total en pesos calculado (sugerido) — se muestra al lado del input
   const totalPesosCalculado = useMemo(() => {
@@ -181,6 +250,47 @@ export function FacturaForm({
           <Field label="CUIT país (extranjero)" error={errors.cuit_pais?.message}>
             <Input {...register('cuit_pais')} />
           </Field>
+
+          {!isUpdate && (
+            <Field
+              label="Cuota de servicio asociada"
+              required
+              error={(errors as Record<string, { message?: string } | undefined>).servicio_cuota_id?.message}
+              hint="Toda factura debe asociarse a una cuota pendiente de un servicio activo del cliente."
+              className="md:col-span-3"
+            >
+              {!clienteId || Number(clienteId) === 0 ? (
+                <div className="rounded-lg border border-dashed border-neutral-300 p-3 text-xs text-neutral-500">
+                  Seleccioná un cliente primero
+                </div>
+              ) : loadingCuotas ? (
+                <div className="rounded-lg border border-neutral-200 p-3 text-xs text-neutral-500">
+                  Cargando cuotas…
+                </div>
+              ) : cuotasError ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                  <AlertCircle className="mb-1 inline h-3 w-3" /> {cuotasError}
+                </div>
+              ) : cuotas.length === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  <AlertCircle className="mb-1 inline h-3 w-3" /> Este cliente no tiene cuotas
+                  pendientes en servicios activos. Creá un servicio o desde el detalle del servicio
+                  usá &quot;Facturar cuota&quot;.
+                </div>
+              ) : (
+                <select className="input-base" {...register('servicio_cuota_id')}>
+                  <option value="">— Seleccionar cuota —</option>
+                  {cuotas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.servicio.nombre} · Cuota {c.numero_cuota}
+                      {c.etiqueta ? ` (${c.etiqueta})` : ''} · {date(c.fecha_prevista)} · {c.servicio.moneda}{' '}
+                      {Number(c.importe).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          )}
         </div>
       </Card>
 

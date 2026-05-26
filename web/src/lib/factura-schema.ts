@@ -95,6 +95,10 @@ export const facturaSchema = z
       .nullish()
       .transform((v) => (v === '' || v === undefined ? null : v)),
     estado: z.enum(['borrador', 'emitida', 'cobrada', 'vencida', 'anulada']).optional(),
+    servicio_cuota_id: z
+      .union([z.coerce.number().int().positive(), z.literal('')])
+      .nullish()
+      .transform((v) => (v === '' || v === undefined || v === null ? null : Number(v))),
   })
   .superRefine((data, ctx) => {
     if (data.moneda === 'USD' && (data.tdc === null || data.tdc === undefined || data.tdc <= 0)) {

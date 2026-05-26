@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Receipt, X, MoreHorizontal, SkipForward } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { useServicioMutations } from '@/hooks/useServicios';
 import { useAuthStore } from '@/stores/auth';
 import { money, date } from '@/lib/format';
 import { TIPOS_FACTURA } from '@/lib/cliente-schema';
+import { extractManualPlaceholders, renderTemplate } from '@/lib/template-renderer';
 import type { Servicio, ServicioCuota } from '@/types/servicio';
 
 export interface CuotaActionsProps {
@@ -239,10 +240,35 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
   const [fechaFactura, setFechaFactura] = useState(hoy);
   const [vencimiento, setVencimiento] = useState('');
   const [tdc, setTdc] = useState<string>('');
-  const [detalle, setDetalle] = useState('');
+  const [detalleManual, setDetalleManual] = useState<string | null>(null);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const esUsd = servicio.moneda === 'USD';
+
+  const template = servicio.template_factura ?? '';
+  const placeholders = useMemo(
+    () => (template ? extractManualPlaceholders(template) : []),
+    [template],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (placeholders.length > 0) {
+      const init: Record<string, string> = {};
+      for (const p of placeholders) init[p.name] = p.defaultValue;
+      setInputs(init);
+    }
+    setDetalleManual(null);
+  }, [open, placeholders]);
+
+  const detalleGenerado = useMemo(() => {
+    if (!template) return '';
+    const fechaCuota = cuota.fecha_prevista ? new Date(cuota.fecha_prevista) : new Date(fechaFactura);
+    return renderTemplate(template, { fecha: fechaCuota, inputs });
+  }, [template, cuota.fecha_prevista, fechaFactura, inputs]);
+
+  const detalleFinal = detalleManual ?? detalleGenerado;
 
   async function go() {
     if (!numero.trim()) {
@@ -262,11 +288,10 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
         fecha_factura: fechaFactura,
         vencimiento: vencimiento || undefined,
         tdc: esUsd ? Number(tdc) : null,
-        detalle_factura: detalle || undefined,
+        detalle_factura: detalleFinal || undefined,
       });
       toast.success('Factura creada');
       onDone();
-      // Si tenemos el id de la factura, ofrecer redirigir? Por ahora solo recarga.
       const id = (factura as { id?: number })?.id;
       if (id) {
         router.push(`/facturas/ver?id=${id}`);
@@ -347,14 +372,48 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
             />
           </div>
         )}
+        {placeholders.length > 0 && (
+          <div className="md:col-span-2 rounded-lg border border-primary-100 bg-primary-50 p-3">
+            <Label className="mb-2 block text-xs uppercase tracking-wide text-primary-700">
+              Valores del template
+            </Label>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {placeholders.map((p) => (
+                <div key={p.name}>
+                  <Label className="mb-1 block text-xs">{p.name}</Label>
+                  <Input
+                    type="text"
+                    value={inputs[p.name] ?? ''}
+                    onChange={(e) => setInputs((prev) => ({ ...prev, [p.name]: e.target.value }))}
+                    placeholder={p.defaultValue}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="md:col-span-2">
-          <Label className="mb-1 block">Detalle</Label>
+          <Label className="mb-1 block">Detalle de la factura</Label>
           <Textarea
-            rows={2}
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            placeholder={`Default: "${servicio.nombre} — ${cuota.etiqueta ?? 'Cuota ' + cuota.numero_cuota}"`}
+            rows={3}
+            value={detalleFinal}
+            onChange={(e) => setDetalleManual(e.target.value)}
+            placeholder={
+              template
+                ? 'Editable manualmente — se completa desde el template del servicio.'
+                : `Default: "${servicio.nombre} — ${cuota.etiqueta ?? 'Cuota ' + cuota.numero_cuota}"`
+            }
           />
+          {template && detalleManual !== null && (
+            <button
+              type="button"
+              onClick={() => setDetalleManual(null)}
+              className="mt-1 text-xs text-primary-700 hover:underline"
+            >
+              Volver a usar el template
+            </button>
+          )}
         </div>
       </div>
 

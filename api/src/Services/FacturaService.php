@@ -60,6 +60,27 @@ final class FacturaService
                 ['numero_factura' => 'duplicado']);
         }
 
+        // Regla de negocio: toda factura debe asociarse a una cuota de servicio.
+        // El bot facturarCuota del backend la setea automaticamente; el alta
+        // manual via /facturas/nueva tiene que recibirla del cliente.
+        if (empty($clean['servicio_cuota_id'])) {
+            throw new ValidationException(
+                'La factura debe estar asociada a una cuota de servicio',
+                ['servicio_cuota_id' => 'requerido']
+            );
+        }
+
+        // Verificar que esa cuota no tenga ya otra factura activa
+        $existeFacturaPrevia = FacturaVenta::where('servicio_cuota_id', $clean['servicio_cuota_id'])
+            ->whereNull('deleted_at')
+            ->exists();
+        if ($existeFacturaPrevia) {
+            throw new ValidationException(
+                'Esa cuota ya tiene una factura activa. Archivá la existente para reemplazarla.',
+                ['servicio_cuota_id' => 'cuota ya facturada']
+            );
+        }
+
         // Autocálculo importe_total_pesos si no vino y es ARS o si hay TDC en USD
         if (!isset($clean['importe_total_pesos']) || $clean['importe_total_pesos'] === null) {
             $clean['importe_total_pesos'] = $this->calcularImporteTotalPesos($clean);
