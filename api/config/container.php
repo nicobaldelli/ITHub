@@ -20,6 +20,7 @@ use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
 use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
+use ITHub\Api\Services\ExportService;
 use ITHub\Api\Services\GoogleDriveService;
 use ITHub\Api\Services\MailerService;
 use ITHub\Api\Services\NotificacionService;
@@ -198,5 +199,13 @@ return [
     GoogleDriveService::class => fn (ContainerInterface $c) => new GoogleDriveService(
         $c,
         $c->get(LoggerInterface::class)
+    ),
+
+    // ============================================================
+    // Exports
+    // ============================================================
+    ExportService::class => fn (ContainerInterface $c) => new ExportService(
+        $c,
+        $c->get(FacturaRepository::class)
     ),
 ];

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Filter, Plus, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { EstadoBadge } from '@/components/facturas/EstadoBadge';
 import { useFacturas, type FacturasFilters } from '@/hooks/useFacturas';
 import { useAuthStore } from '@/stores/auth';
+import { api, apiErrorMessage } from '@/lib/api';
 import { money, date } from '@/lib/format';
 
 export default function FacturasPage() {
@@ -19,22 +21,83 @@ export default function FacturasPage() {
   const user = useAuthStore((s) => s.user);
   const puedeCrear = user?.rol === 'admin' || user?.rol === 'ventas';
 
+  const [exporting, setExporting] = useState<string | null>(null);
+
   function setFilter(patch: Partial<FacturasFilters>) {
     setFilters((f) => ({ ...f, ...patch, page: 1 }));
   }
 
+  async function exportar(formato: 'xlsx' | 'csv' | 'pdf') {
+    setExporting(formato);
+    try {
+      const params = new URLSearchParams({ formato });
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v === undefined || v === '' || v === false) return;
+        if (k === 'page' || k === 'per_page') return; // exportamos todo lo filtrado
+        params.set(k, String(v));
+      });
+      const res = await api.get(`/facturas/export?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Extraer filename del Content-Disposition si está
+      const dispo = res.headers['content-disposition'] ?? '';
+      const m = /filename="?([^"]+)"?/.exec(dispo);
+      a.download = m ? m[1] : `facturas.${formato}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Export ${formato.toUpperCase()} descargado`);
+    } catch (e) {
+      toast.error(apiErrorMessage(e, 'No se pudo exportar'));
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <AppShell title="Facturas">
-      {puedeCrear && (
-        <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => exportar('xlsx')}
+          loading={exporting === 'xlsx'}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Excel
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => exportar('csv')}
+          loading={exporting === 'csv'}
+        >
+          <Download className="h-3.5 w-3.5" />
+          CSV
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => exportar('pdf')}
+          loading={exporting === 'pdf'}
+        >
+          <Download className="h-3.5 w-3.5" />
+          PDF
+        </Button>
+        {puedeCrear && (
           <Link href="/facturas/nueva">
             <Button>
               <Plus className="h-4 w-4" />
               Nueva factura
             </Button>
           </Link>
-        </div>
-      )}
+        )}
+      </div>
       {/* Filtros */}
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-5">

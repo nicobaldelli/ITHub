@@ -11,6 +11,7 @@ use ITHub\Api\Controllers\ClientesController;
 use ITHub\Api\Controllers\ConfigController;
 use ITHub\Api\Controllers\CronController;
 use ITHub\Api\Controllers\DashboardController;
+use ITHub\Api\Controllers\ExportController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
 use ITHub\Api\Controllers\ServiciosController;
@@ -89,6 +90,9 @@ final class Routes
                 ->add(new RoleMiddleware(['admin', 'cobranzas']));
             $g->delete('/facturas/{id:[0-9]+}', [FacturasController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
+
+            // ----- Export de facturas -----
+            $g->get('/facturas/export', [ExportController::class, 'facturas']);
 
             // ----- Adjuntos de facturas (Google Drive) -----
             $g->get('/facturas/{id:[0-9]+}/archivos', [ArchivosController::class, 'index']);
