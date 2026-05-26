@@ -6,6 +6,7 @@ namespace ITHub\Api\Bootstrap;
 
 use ITHub\Api\Controllers\AuthController;
 use ITHub\Api\Controllers\ClientesController;
+use ITHub\Api\Controllers\ConfigController;
 use ITHub\Api\Controllers\DashboardController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
@@ -144,6 +145,12 @@ final class Routes
             $g->patch('/usuarios/{id:[0-9]+}/activar', [UsuariosController::class, 'activar'])
                 ->add(new RoleMiddleware(['admin']));
             $g->delete('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'destroy'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Config (admin only) -----
+            $g->get('/config', [ConfigController::class, 'index'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->put('/config/{clave:[a-z_0-9]+}', [ConfigController::class, 'update'])
                 ->add(new RoleMiddleware(['admin']));
         })
             ->add(new RateLimitMiddleware('general'))
