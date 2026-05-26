@@ -38,6 +38,8 @@ final class Routes
         // ============================================================
         $app->post('/cron/recordatorios', [CronController::class, 'recordatorios']);
         $app->post('/cron/recalcular', [CronController::class, 'recalcular']);
+        $app->post('/cron/rolling-window', [CronController::class, 'rollingWindow']);
+        $app->post('/cron/diario', [CronController::class, 'diario']);
 
         // ============================================================
         // AUTH (rutas públicas con rate limit estricto)
@@ -170,6 +172,10 @@ final class Routes
             $g->post('/admin/cron/recordatorios', [CronController::class, 'recordatorios'])
                 ->add(new RoleMiddleware(['admin']));
             $g->post('/admin/cron/recalcular', [CronController::class, 'recalcular'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/admin/cron/rolling-window', [CronController::class, 'rollingWindow'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/admin/cron/diario', [CronController::class, 'diario'])
                 ->add(new RoleMiddleware(['admin']));
         })
             ->add(new RateLimitMiddleware('general'))

@@ -22,6 +22,7 @@ use ITHub\Api\Services\ServicioCuotaService;
 use ITHub\Api\Services\ServicioService;
 use ITHub\Api\Services\MailerService;
 use ITHub\Api\Services\NotificacionService;
+use ITHub\Api\Services\RollingWindowService;
 use ITHub\Api\Services\ServiciosMetricsService;
 use ITHub\Api\Services\UsuarioService;
 use Monolog\Formatter\LineFormatter;
@@ -184,6 +185,9 @@ return [
     NotificacionService::class => fn (ContainerInterface $c) => new NotificacionService(
         $c,
         $c->get(MailerService::class),
+        $c->get(LoggerInterface::class)
+    ),
+    RollingWindowService::class => fn (ContainerInterface $c) => new RollingWindowService(
         $c->get(LoggerInterface::class)
     ),
 ];

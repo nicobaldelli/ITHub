@@ -7,6 +7,7 @@ namespace ITHub\Api\Controllers;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\AuthException;
 use ITHub\Api\Services\NotificacionService;
+use ITHub\Api\Services\RollingWindowService;
 use ITHub\Api\Support\ResponseFactory;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -38,6 +39,50 @@ final class CronController
         $resumen = $service->dispatch();
 
         return ResponseFactory::json($response, $resumen);
+    }
+
+    /**
+     * Extiende el cronograma de los mantenimientos indefinidos (rolling window).
+     */
+    public function rollingWindow(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $this->verifyCronTokenOrAdmin($request);
+
+        /** @var RollingWindowService $service */
+        $service = $this->container->get(RollingWindowService::class);
+        $resumen = $service->extend();
+
+        return ResponseFactory::json($response, $resumen);
+    }
+
+    /**
+     * Corre TODAS las tareas diarias en una sola llamada (lo que conviene
+     * gatillar desde el cron de Hostinger).
+     */
+    public function diario(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $this->verifyCronTokenOrAdmin($request);
+
+        /** @var NotificacionService $notif */
+        $notif = $this->container->get(NotificacionService::class);
+        /** @var RollingWindowService $rolling */
+        $rolling = $this->container->get(RollingWindowService::class);
+
+        $hoy = date('Y-m-d');
+        $vencidas = Capsule::connection()
+            ->table('facturas_venta')
+            ->whereNull('deleted_at')
+            ->where('estado', 'emitida')
+            ->where('check_cobranza', false)
+            ->whereNotNull('vencimiento')
+            ->where('vencimiento', '<', $hoy)
+            ->update(['estado' => 'vencida']);
+
+        return ResponseFactory::json($response, [
+            'recalcular' => ['facturas_marcadas_vencidas' => $vencidas],
+            'rolling_window' => $rolling->extend(),
+            'recordatorios' => $notif->dispatch(),
+        ]);
     }
 
     /**

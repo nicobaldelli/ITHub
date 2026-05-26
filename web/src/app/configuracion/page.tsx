@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, RefreshCw, Eye, EyeOff, Send, RotateCcw } from 'lucide-react';
+import { Save, RefreshCw, Eye, EyeOff, Send, RotateCcw, CalendarRange, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
@@ -75,20 +75,20 @@ export default function ConfiguracionPage() {
 }
 
 function CronManualCard() {
-  const [loadingMail, setLoadingMail] = useState(false);
-  const [loadingRecalc, setLoadingRecalc] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
 
-  async function disparar(endpoint: 'recordatorios' | 'recalcular') {
-    const setLoading = endpoint === 'recordatorios' ? setLoadingMail : setLoadingRecalc;
-    setLoading(true);
+  async function disparar(
+    endpoint: 'recordatorios' | 'recalcular' | 'rolling-window' | 'diario',
+  ) {
+    setLoading(endpoint);
     try {
       const res = await api.post(`/admin/cron/${endpoint}`);
       const summary = JSON.stringify(res.data.data, null, 2);
-      toast.success(`Cron ejecutado:\n${summary}`, { duration: 8000 });
+      toast.success(`Cron ${endpoint} ejecutado:\n${summary}`, { duration: 10000 });
     } catch (e) {
       toast.error(apiErrorMessage(e, 'Error al disparar cron'));
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   }
 
@@ -98,17 +98,39 @@ function CronManualCard() {
         Tareas programadas (manual)
       </h3>
       <p className="mb-4 text-xs text-neutral-500">
-        Estos endpoints normalmente corren por cron automático. Acá los podés disparar a
-        mano para testear o regenerar estado.
+        Estos endpoints normalmente corren por cron automático en Hostinger. Acá los podés
+        disparar a mano para testear o regenerar estado.{' '}
+        <strong>&quot;Cron diario&quot;</strong> corre las 3 tareas juntas — es lo que conviene
+        schedulear.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => disparar('recordatorios')} loading={loadingMail}>
-          <Send className="h-4 w-4" />
-          Enviar recordatorios pendientes
+        <Button onClick={() => disparar('diario')} loading={loading === 'diario'}>
+          <Zap className="h-4 w-4" />
+          Cron diario (todo)
         </Button>
-        <Button onClick={() => disparar('recalcular')} loading={loadingRecalc} variant="secondary">
+        <Button
+          onClick={() => disparar('recordatorios')}
+          loading={loading === 'recordatorios'}
+          variant="secondary"
+        >
+          <Send className="h-4 w-4" />
+          Enviar recordatorios
+        </Button>
+        <Button
+          onClick={() => disparar('recalcular')}
+          loading={loading === 'recalcular'}
+          variant="secondary"
+        >
           <RotateCcw className="h-4 w-4" />
-          Recalcular estados de facturas
+          Recalcular vencidas
+        </Button>
+        <Button
+          onClick={() => disparar('rolling-window')}
+          loading={loading === 'rolling-window'}
+          variant="secondary"
+        >
+          <CalendarRange className="h-4 w-4" />
+          Extender cuotas indefinidas
         </Button>
       </div>
     </Card>
