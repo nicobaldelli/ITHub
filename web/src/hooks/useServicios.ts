@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess, ApiMeta } from '@/types/api';
 import type { Servicio, TipoServicio, EstadoServicio } from '@/types/servicio';
@@ -51,4 +51,37 @@ export function useServicios(filters: ServiciosFilters) {
   }, [JSON.stringify(filters)]);
 
   return { data, meta, loading, error };
+}
+
+/** Carga un servicio con sus cuotas y ajustes. */
+export function useServicio(id: number | null) {
+  const [data, setData] = useState<Servicio | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!id) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+    let canceled = false;
+    setLoading(true);
+    setError(null);
+
+    api
+      .get<ApiSuccess<Servicio>>(`/servicios/${id}`)
+      .then((res) => !canceled && setData(res.data.data))
+      .catch((e) => !canceled && setError(apiErrorMessage(e, 'Error cargando servicio')))
+      .finally(() => !canceled && setLoading(false));
+
+    return () => {
+      canceled = true;
+    };
+  }, [id, reloadKey]);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  return { data, loading, error, reload };
 }
