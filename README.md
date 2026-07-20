@@ -11,7 +11,7 @@ Deploy productivo en Hostinger:
 | Servicio | Subdominio |
 |---|---|
 | Frontend | `https://ithub.intellihelp.tech` |
-| API REST | `https://api.ithub.intellihelp.tech` |
+| API REST | `https://apithub.intellihelp.tech` |
 
 ---
 

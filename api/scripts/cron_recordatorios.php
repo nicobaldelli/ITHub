@@ -8,7 +8,7 @@
  *   0 9 * * * /usr/bin/php /var/www/html/api/scripts/cron_recordatorios.php
  *
  * Alternativa HTTP via curl con CRON_TOKEN:
- *   curl -X POST https://api.ithub.intellihelp.tech/api/v1/cron/recordatorios \
+ *   curl -X POST https://apithub.intellihelp.tech/api/v1/cron/recordatorios \
  *     -H "X-Cron-Token: <TOKEN>"
  *
  * Salida: JSON con el resumen + exit code 0/1.

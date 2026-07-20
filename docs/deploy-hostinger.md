@@ -12,7 +12,7 @@ dos subdominios separados.
 |---|---|
 | Plan Hostinger | Business o Cloud (necesario para SSH + cron) |
 | Dominio | `intellihelp.tech` (o el que tengas) |
-| Subdominio API | `api.ithub.intellihelp.tech` |
+| Subdominio API | `apithub.intellihelp.tech` |
 | Subdominio Web | `ithub.intellihelp.tech` |
 | PHP | 8.2+ (configurable en hPanel) |
 | MySQL | 8.0+ |
@@ -33,7 +33,7 @@ En el hPanel de Hostinger:
 
 1. **Dominios → Subdominios**
 2. Crear `ithub` apuntando a una nueva carpeta (`/public_html/ithub-web/`)
-3. Crear `api.ithub` apuntando a otra (`/public_html/ithub-api/public/` — ojo: `/public` es el web root del backend)
+3. Crear `apithub` apuntando a otra (`/public_html/ithub-api/public/` — ojo: `/public` es el web root del backend)
 
 Esperar 5–15 min a que se propague el DNS.
 
@@ -54,7 +54,7 @@ git clone https://github.com/nicobaldelli/ITHub.git .
 # (o git pull si ya está clonado)
 ```
 
-> **Importante:** el web root debe apuntar a `ithub-api/public/`, no a la raíz del repo. Esto se configura en hPanel cuando creás el subdominio `api.ithub`.
+> **Importante:** el web root debe apuntar a `ithub-api/public/`, no a la raíz del repo. Esto se configura en hPanel cuando creás el subdominio `apithub`.
 
 ### 2.2 Instalar dependencias
 
@@ -98,11 +98,11 @@ DB_PASSWORD=<password-fuerte>
 
 # JWT — generar con: openssl rand -base64 32
 JWT_SECRET=<32+ chars random>
-JWT_ISSUER=https://api.ithub.intellihelp.tech
+JWT_ISSUER=https://apithub.intellihelp.tech
 JWT_AUDIENCE=https://ithub.intellihelp.tech
 
 # Cookies
-COOKIE_DOMAIN=.ithub.intellihelp.tech
+COOKIE_DOMAIN=apithub.intellihelp.tech
 COOKIE_SECURE=true
 COOKIE_SAMESITE=Strict
 
@@ -186,7 +186,7 @@ max_execution_time = 60
 ### 2.8 Probar
 
 ```bash
-curl https://api.ithub.intellihelp.tech/api/v1/health
+curl https://apithub.intellihelp.tech/api/v1/health
 # Esperado: {"data":{"status":"ok","db":"up","time":"..."}}
 ```
 
@@ -201,7 +201,7 @@ En tu **máquina local** (no en Hostinger):
 ```bash
 cd web
 pnpm install
-echo 'NEXT_PUBLIC_API_URL=https://api.ithub.intellihelp.tech/api/v1' > .env.production
+echo 'NEXT_PUBLIC_API_URL=https://apithub.intellihelp.tech/api/v1' > .env.production
 pnpm build
 ```
 
@@ -247,7 +247,7 @@ RewriteRule ^ index.html [L]
 
 ### 3.4 SSL
 
-En hPanel → **SSL** → emitir certificados Let's Encrypt para ambos subdominios (`ithub.intellihelp.tech` y `api.ithub.intellihelp.tech`). Marcar "redirigir HTTP a HTTPS".
+En hPanel → **SSL** → emitir certificados Let's Encrypt para ambos subdominios (`ithub.intellihelp.tech` y `apithub.intellihelp.tech`). Marcar "redirigir HTTP a HTTPS".
 
 ### 3.5 Probar
 
@@ -266,7 +266,7 @@ En hPanel → **Avanzado → Cron Jobs**:
 Alternativa HTTP (si Hostinger no te deja PHP CLI):
 
 ```bash
-0 9 * * * curl -X POST https://api.ithub.intellihelp.tech/api/v1/cron/diario \
+0 9 * * * curl -X POST https://apithub.intellihelp.tech/api/v1/cron/diario \
   -H "X-Cron-Token: <TU_CRON_TOKEN>" >> ~/logs/ithub-cron.log 2>&1
 ```
 
@@ -302,7 +302,7 @@ Desde `/usuarios` (admin):
 
 | # | Test | URL |
 |---|---|---|
-| 1 | Health del API | `curl https://api.ithub.intellihelp.tech/api/v1/health` |
+| 1 | Health del API | `curl https://apithub.intellihelp.tech/api/v1/health` |
 | 2 | Login funciona | login en `https://ithub.intellihelp.tech/login` |
 | 3 | Sesión persiste al reload | F5 estando logueado, no te tira al login |
 | 4 | Crear cliente | `/clientes/nuevo` |
@@ -360,7 +360,7 @@ Recomendado: copiar los backups a Google Drive o S3 con `rclone` (también via c
 - Verificar que el subdominio del API tenga SSL (Cookies con `SameSite=Strict` requieren HTTPS)
 
 ### "CSRF_INVALID" después de login
-- Verificar `COOKIE_DOMAIN=.ithub.intellihelp.tech` (con el punto adelante)
+- Verificar `COOKIE_DOMAIN=apithub.intellihelp.tech` (con el punto adelante)
 - Verificar que ambos subdominios estén en HTTPS
 
 ### "PHP version 8.0 detected" al instalar
@@ -408,7 +408,7 @@ scp -r out/* u123456789@<host>:~/domains/intellihelp.tech/public_html/ithub-web/
 - [ ] `display_errors = Off` en PHP
 - [ ] SSL forzado (HSTS activo)
 - [ ] Carpetas `vendor/`, `db/`, `config/`, `src/`, `storage/` NO accesibles por HTTP
-   (verificar con `curl https://api.ithub.intellihelp.tech/vendor/autoload.php` → debe dar 403/404)
+   (verificar con `curl https://apithub.intellihelp.tech/vendor/autoload.php` → debe dar 403/404)
 - [ ] Adminer/phpMyAdmin no expuesto al público
 - [ ] Test de SSL Labs grado A+
 - [ ] Test de securityheaders.com grado A o mejor

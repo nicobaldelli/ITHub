@@ -51,7 +51,7 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 - TTL **7 días**
 - **Rotación obligatoria:** cada `/auth/refresh` invalida el refresh anterior y emite uno nuevo
 - **Detección de reuso:** si llega un refresh ya marcado como `revoked_at`, se invalida toda la familia de tokens del usuario (posible robo) y se fuerza re-login
-- Se transmite en **cookie HttpOnly + Secure + SameSite=Strict**, `Domain=api.ithub.intellihelp.tech`, `Path=/api/v1/auth`
+- Se transmite en **cookie HttpOnly + Secure + SameSite=Strict**, `Domain=apithub.intellihelp.tech`, `Path=/api/v1/auth`
 
 ### 2.5 Lockout / fuerza bruta
 - **5 intentos fallidos** por email en 15 min → bloqueo temporal del email
@@ -114,7 +114,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.ithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://apithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 X-Permitted-Cross-Domain-Policies: none
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site

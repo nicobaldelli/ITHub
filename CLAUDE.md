@@ -21,7 +21,7 @@
 - **Frontend:** Next.js 14 (App Router) + TypeScript strict + Tailwind + Saira + Recharts + Zustand + Axios
 - **Package manager web:** **pnpm 9** (no npm). `onlyBuiltDependencies` whitelist en package.json.
 - **Deploy:** Hostinger. Frontend como Static Export (`output: 'export'`).
-- **Dominios:** `ithub.intellihelp.tech` (web) + `api.ithub.intellihelp.tech` (api)
+- **Dominios:** `ithub.intellihelp.tech` (web) + `apithub.intellihelp.tech` (api)
 - **Admin inicial:** `nbaldelli@intellihelp.tech` — password actual: `MiPwSegura2026!`
 
 ## 🎨 Branding

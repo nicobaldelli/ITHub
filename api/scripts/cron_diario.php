@@ -9,7 +9,7 @@
  *   0 9 * * * /usr/bin/php /var/www/html/api/scripts/cron_diario.php >> /var/log/ithub-cron.log 2>&1
  *
  * Alternativa HTTP:
- *   curl -X POST https://api.ithub.intellihelp.tech/api/v1/cron/diario \
+ *   curl -X POST https://apithub.intellihelp.tech/api/v1/cron/diario \
  *     -H "X-Cron-Token: <TOKEN>"
  */
 

@@ -9,7 +9,7 @@
 **Owner:** Nico Baldelli (`nbaldelli@intellihelp.tech`)
 **Repo:** https://github.com/nicobaldelli/ITHub
 **Rama:** `master`
-**Dominios productivos:** `ithub.intellihelp.tech` (web) + `api.ithub.intellihelp.tech` (API)
+**Dominios productivos:** `ithub.intellihelp.tech` (web) + `apithub.intellihelp.tech` (API)
 **Host:** Hostinger
 
 ---
@@ -229,7 +229,7 @@
 
 | Decisión | Valor |
 |---|---|
-| Dominio | `ithub.intellihelp.tech` + `api.ithub.intellihelp.tech` |
+| Dominio | `ithub.intellihelp.tech` + `apithub.intellihelp.tech` |
 | Admin inicial | `nbaldelli@intellihelp.tech` |
 | Frontend deploy | **Static Export** (Hostinger compartido, sin Node) |
 | Monorepo | `api/` + `web/` en un solo repo |
