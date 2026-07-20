@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { ServicioForm } from '@/components/servicios/ServicioForm';
@@ -58,8 +59,7 @@ export default function NuevoServicioPage() {
       toast.success('Servicio creado');
       router.push(`/servicios/ver?id=${servicio.id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo crear el servicio');
-      throw e;
+      toast.error(apiErrorMessage(e, 'No se pudo crear el servicio'));
     }
   }
 

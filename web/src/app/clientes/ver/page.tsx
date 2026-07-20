@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ function ClienteVerInner() {
       toast.success('Cliente archivado');
       router.push('/clientes');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo archivar');
+      toast.error(apiErrorMessage(e, 'No se pudo archivar'));
       setDeleting(false);
     }
   }

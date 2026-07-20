@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Receipt, X, MoreHorizontal, SkipForward } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -202,7 +203,7 @@ function ConfirmarEstadoModal({
       toast.success('Cuota actualizada');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar la cuota');
+      toast.error(apiErrorMessage(e, 'No se pudo actualizar la cuota'));
     } finally {
       setLoading(false);
     }
@@ -320,7 +321,7 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
         router.push(`/facturas/ver?id=${id}`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo facturar');
+      toast.error(apiErrorMessage(e, 'No se pudo facturar'));
     } finally {
       setLoading(false);
     }

@@ -192,7 +192,7 @@ function ConfigRow({
       toast.success(`Clave "${entry.clave}" actualizada`);
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      toast.error(apiErrorMessage(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }

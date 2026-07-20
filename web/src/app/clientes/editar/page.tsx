@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -45,8 +46,7 @@ function EditarClienteInner() {
       toast.success('Cliente actualizado');
       router.push(`/clientes/ver?id=${id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
-      throw e;
+      toast.error(apiErrorMessage(e, 'No se pudo actualizar'));
     }
   }
 

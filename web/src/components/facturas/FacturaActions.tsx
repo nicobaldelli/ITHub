@@ -47,7 +47,7 @@ export function FacturaActions({ factura, onChanged }: FacturaActionsProps) {
       setModal(null);
       onChanged();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Operación fallida');
+      toast.error(apiErrorMessage(e, 'Operación fallida'));
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export function FacturaActions({ factura, onChanged }: FacturaActionsProps) {
       toast.success('Factura eliminada');
       router.push('/facturas');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast.error(apiErrorMessage(e, 'No se pudo eliminar'));
       setLoading(false);
     }
   }

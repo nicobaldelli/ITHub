@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +44,7 @@ export function AjusteRowActions({ servicio, ajuste, onChanged }: AjusteRowActio
       setConfirmando(null);
       onChanged();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Operación fallida');
+      toast.error(apiErrorMessage(e, 'Operación fallida'));
     } finally {
       setLoading(false);
     }
@@ -193,7 +194,7 @@ function CrearAjusteModal({
       toast.success('Ajuste creado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo crear el ajuste');
+      toast.error(apiErrorMessage(e, 'No se pudo crear el ajuste'));
     } finally {
       setLoading(false);
     }

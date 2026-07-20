@@ -134,10 +134,26 @@ api.interceptors.response.use(
   },
 );
 
-/** Convierte el error de Axios al shape de error de la API (o un mensaje genérico). */
+/**
+ * Convierte el error de Axios al shape de error de la API (o un mensaje genérico).
+ * Si el backend devolvió `details` (errores de validación por campo), los
+ * anexa al mensaje para que el usuario sepa exactamente qué corregir.
+ */
 export function apiErrorMessage(err: unknown, fallback = 'Ocurrió un error'): string {
   if (axios.isAxiosError<ApiErrorBody>(err)) {
-    return err.response?.data?.error?.message ?? err.message ?? fallback;
+    const apiError = err.response?.data?.error;
+    const base = apiError?.message ?? err.message ?? fallback;
+
+    const details = apiError?.details;
+    if (details && typeof details === 'object') {
+      const lines = Object.entries(details)
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .map(([campo, v]) => `${campo}: ${Array.isArray(v) ? v.join(', ') : String(v)}`);
+      if (lines.length > 0) {
+        return `${base} — ${lines.join(' · ')}`;
+      }
+    }
+    return base;
   }
   return fallback;
 }

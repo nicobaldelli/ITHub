@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Search, Plus, Pencil, KeyRound, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -244,7 +245,7 @@ function ResetPasswordConfirm({
       toast.success('Password reseteada');
       onSuccess(result.password_temporal);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al resetear');
+      toast.error(apiErrorMessage(e, 'Error al resetear'));
     } finally {
       setLoading(false);
     }
@@ -288,7 +289,7 @@ function DesactivarConfirm({
       toast.success('Usuario desactivado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al desactivar');
+      toast.error(apiErrorMessage(e, 'Error al desactivar'));
     } finally {
       setLoading(false);
     }
@@ -324,7 +325,7 @@ function ActivarBtn({ user, onDone }: { user: Usuario; onDone: () => void }) {
       toast.success('Usuario activado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al activar');
+      toast.error(apiErrorMessage(e, 'Error al activar'));
     } finally {
       setLoading(false);
     }

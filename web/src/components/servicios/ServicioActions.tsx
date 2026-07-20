@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Pencil, Trash2, Pause, Play, Ban, CalendarPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -145,7 +146,7 @@ function PausarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
       toast.success('Servicio pausado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo pausar');
+      toast.error(apiErrorMessage(e, 'No se pudo pausar'));
     } finally {
       setLoading(false);
     }
@@ -182,7 +183,7 @@ function ReanudarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
       toast.success('Servicio reanudado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo reanudar');
+      toast.error(apiErrorMessage(e, 'No se pudo reanudar'));
     } finally {
       setLoading(false);
     }
@@ -253,7 +254,7 @@ function CancelarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
       toast.success('Servicio cancelado');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
+      toast.error(apiErrorMessage(e, 'No se pudo cancelar'));
     } finally {
       setLoading(false);
     }
@@ -302,7 +303,7 @@ function ExtenderModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
       toast.success('Servicio extendido');
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo extender');
+      toast.error(apiErrorMessage(e, 'No se pudo extender'));
     } finally {
       setLoading(false);
     }
@@ -404,7 +405,7 @@ function EliminarModal({
       toast.success('Servicio eliminado');
       router.push('/servicios');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      toast.error(apiErrorMessage(e, 'No se pudo eliminar'));
       setLoading(false);
     }
   }
