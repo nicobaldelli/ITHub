@@ -1,13 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, RefreshCw, Eye, EyeOff, Send, RotateCcw, CalendarRange, Zap } from 'lucide-react';
+import {
+  Save,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Send,
+  RotateCcw,
+  CalendarRange,
+  Zap,
+  Download,
+  UploadCloud,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useConfig } from '@/hooks/useConfig';
@@ -68,9 +80,156 @@ export default function ConfiguracionPage() {
           ))}
 
           <CronManualCard />
+
+          <BackupCard />
         </div>
       )}
     </AppShell>
+  );
+}
+
+function BackupCard() {
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
+  async function exportar() {
+    setExporting(true);
+    try {
+      const res = await api.get('/backup/export', { responseType: 'blob' });
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dispo = res.headers['content-disposition'] ?? '';
+      const m = /filename="?([^"]+)"?/.exec(dispo);
+      a.download = m ? m[1] : 'ithub-backup.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Copia de seguridad descargada');
+    } catch (e) {
+      toast.error(apiErrorMessage(e, 'No se pudo exportar'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function importar() {
+    if (!archivo) return;
+    setImporting(true);
+    try {
+      const form = new FormData();
+      form.append('archivo', archivo);
+      const res = await api.post('/backup/import', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300_000, // restaurar puede tardar
+      });
+      const data = res.data.data as { filas_insertadas: number; mensaje: string };
+      toast.success(`Restaurado: ${data.filas_insertadas} filas. ${data.mensaje}`, {
+        duration: 10000,
+      });
+      setConfirmOpen(false);
+      setArchivo(null);
+      // Los usuarios del entorno fueron reemplazados por los del backup:
+      // la sesión actual puede quedar inválida. Forzamos re-login.
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2500);
+    } catch (e) {
+      toast.error(apiErrorMessage(e, 'No se pudo restaurar'));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        Copia de seguridad de datos
+      </h3>
+      <p className="mb-4 text-xs text-neutral-500">
+        Exporta o restaura <strong>todos los datos de negocio</strong> (usuarios, clientes,
+        servicios, cuotas, ajustes, facturas, adjuntos y notificaciones) como un archivo JSON.
+        Sirve para mover datos entre este entorno y tu entorno local. No incluye la
+        configuración de este panel (SMTP, Drive) ni la auditoría, que son propias de cada
+        entorno.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={exportar} loading={exporting}>
+          <Download className="h-4 w-4" />
+          Descargar copia
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <Input
+            type="file"
+            accept="application/json,.json"
+            onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+            className="max-w-xs"
+          />
+          <Button
+            variant="danger"
+            disabled={!archivo}
+            onClick={() => {
+              setConfirmText('');
+              setConfirmOpen(true);
+            }}
+          >
+            <UploadCloud className="h-4 w-4" />
+            Restaurar copia
+          </Button>
+        </div>
+      </div>
+
+      <Dialog
+        open={confirmOpen}
+        onClose={() => !importing && setConfirmOpen(false)}
+        title="Restaurar copia de seguridad"
+        size="md"
+      >
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          <strong>Esto REEMPLAZA todos los datos actuales</strong> de este entorno por los del
+          archivo: usuarios, clientes, servicios, facturas — todo. La operación es transaccional
+          (si falla, no cambia nada), pero una vez completada no hay deshacer.
+        </div>
+        <p className="mt-3 text-xs text-neutral-600">
+          Recomendación: descargá primero una copia del estado actual con &quot;Descargar
+          copia&quot;, por si necesitás volver atrás.
+        </p>
+        <p className="mt-3 text-sm text-neutral-700">
+          Archivo: <strong>{archivo?.name}</strong>
+        </p>
+        <div className="mt-3">
+          <Label className="mb-1 block text-xs">
+            Para confirmar, escribí <code className="font-mono">RESTAURAR</code>
+          </Label>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="RESTAURAR"
+          />
+        </div>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={importing}>
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            onClick={importar}
+            loading={importing}
+            disabled={confirmText !== 'RESTAURAR'}
+          >
+            <UploadCloud className="h-4 w-4" />
+            Restaurar ahora
+          </Button>
+        </div>
+      </Dialog>
+    </Card>
   );
 }
 

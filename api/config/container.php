@@ -13,6 +13,7 @@ use ITHub\Api\Repositories\FacturaRepository;
 use ITHub\Api\Repositories\ServicioRepository;
 use ITHub\Api\Services\AuditoriaService;
 use ITHub\Api\Services\AuthService;
+use ITHub\Api\Services\BackupService;
 use ITHub\Api\Services\ClienteService;
 use ITHub\Api\Services\DashboardService;
 use ITHub\Api\Services\FacturaService;
@@ -200,6 +201,13 @@ return [
     // ============================================================
     GoogleDriveService::class => fn (ContainerInterface $c) => new GoogleDriveService(
         $c,
+        $c->get(LoggerInterface::class)
+    ),
+
+    // ============================================================
+    // Copia de seguridad de datos
+    // ============================================================
+    BackupService::class => fn (ContainerInterface $c) => new BackupService(
         $c->get(LoggerInterface::class)
     ),
 

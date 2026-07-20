@@ -8,6 +8,7 @@ use ITHub\Api\Controllers\ArchivadosController;
 use ITHub\Api\Controllers\ArchivosController;
 use ITHub\Api\Controllers\AuditoriaController;
 use ITHub\Api\Controllers\AuthController;
+use ITHub\Api\Controllers\BackupController;
 use ITHub\Api\Controllers\ClientesController;
 use ITHub\Api\Controllers\ConfigController;
 use ITHub\Api\Controllers\CronController;
@@ -189,6 +190,13 @@ final class Routes
             $g->get('/archivados', [ArchivadosController::class, 'index'])
                 ->add(new RoleMiddleware(['admin']));
             $g->post('/archivados/{entidad:[a-z]+}/{id:[0-9]+}/restaurar', [ArchivadosController::class, 'restaurar'])
+                ->add(new RoleMiddleware(['admin']));
+
+            // ----- Copia de seguridad de datos (admin only) -----
+            $g->get('/backup/export', [BackupController::class, 'export'])
+                ->add(new RoleMiddleware(['admin']));
+            $g->post('/backup/import', [BackupController::class, 'import'])
+                ->add(new RateLimitMiddleware('import'))
                 ->add(new RoleMiddleware(['admin']));
 
             // ----- Cron manual desde UI (admin) -----
