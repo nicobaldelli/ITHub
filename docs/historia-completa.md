@@ -676,7 +676,7 @@ Todas con sus respuestas finales:
 (Si se restaura el dump `backups/ithub-dump-20260522-1816.sql.gz`)
 
 ### Usuarios
-- 1 admin: `nbaldelli@intellihelp.tech` / `MiPwSegura2026!` (must_change_password=false)
+- 1 admin: `nbaldelli@intellihelp.tech` (password fuera del repo; la que figuraba acá debe rotarse)
 
 ### Clientes
 - ACME S.A. — CUIT 30-12345678-1 (id=1)

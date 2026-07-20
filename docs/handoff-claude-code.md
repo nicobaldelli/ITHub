@@ -116,7 +116,7 @@ docker compose --profile frontend up -d web
 
 ## Credenciales
 
-- **Admin app:** `nbaldelli@intellihelp.tech` / `MiPwSegura2026!` (`must_change_password=false` ya rotado)
+- **Admin app:** `nbaldelli@intellihelp.tech` — password: fuera del repo (gestor de contraseñas). La que figuraba acá quedó comprometida y debe rotarse
 - **MySQL:** ver `.env` raíz (DB_ROOT_PASSWORD y DB_PASSWORD)
 
 ---

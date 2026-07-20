@@ -22,7 +22,7 @@
 - **Package manager web:** **pnpm 9** (no npm). `onlyBuiltDependencies` whitelist en package.json.
 - **Deploy:** Hostinger. Frontend como Static Export (`output: 'export'`).
 - **Dominios:** `ithub.intellihelp.tech` (web) + `apithub.intellihelp.tech` (api)
-- **Admin inicial:** `nbaldelli@intellihelp.tech` — password actual: `MiPwSegura2026!`
+- **Admin inicial:** `nbaldelli@intellihelp.tech` — password: NO se documenta en el repo (rotar la que estuvo expuesta aquí hasta 2026-07)
 
 ## 🎨 Branding
 
