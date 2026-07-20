@@ -102,7 +102,7 @@ JWT_ISSUER=https://apithub.intellihelp.tech
 JWT_AUDIENCE=https://ithub.intellihelp.tech
 
 # Cookies
-COOKIE_DOMAIN=apithub.intellihelp.tech
+COOKIE_DOMAIN=.intellihelp.tech
 COOKIE_SECURE=true
 COOKIE_SAMESITE=Strict
 
@@ -360,7 +360,7 @@ Recomendado: copiar los backups a Google Drive o S3 con `rclone` (también via c
 - Verificar que el subdominio del API tenga SSL (Cookies con `SameSite=Strict` requieren HTTPS)
 
 ### "CSRF_INVALID" después de login
-- Verificar `COOKIE_DOMAIN=apithub.intellihelp.tech` (con el punto adelante)
+- Verificar `COOKIE_DOMAIN=.intellihelp.tech` (dominio PADRE con punto adelante — necesario para que el front lea la cookie CSRF)
 - Verificar que ambos subdominios estén en HTTPS
 
 ### "PHP version 8.0 detected" al instalar
