@@ -9,8 +9,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { FacturaForm } from '@/components/facturas/FacturaForm';
 import { useFacturaMutations } from '@/hooks/useFacturas';
+import { clearFormDraft } from '@/hooks/useFormDraft';
 import { useAuthStore } from '@/stores/auth';
 import type { FacturaFormData } from '@/lib/factura-schema';
+
+const DRAFT_KEY = 'factura-nueva';
 
 export default function NuevaFacturaPage() {
   const router = useRouter();
@@ -30,11 +33,17 @@ export default function NuevaFacturaPage() {
   async function onSubmit(data: FacturaFormData) {
     try {
       const factura = await create(data);
+      clearFormDraft(DRAFT_KEY);
       toast.success('Factura creada');
       router.push(`/facturas/ver?id=${factura.id}`);
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo crear la factura'));
     }
+  }
+
+  function onCancel() {
+    clearFormDraft(DRAFT_KEY);
+    router.push('/facturas');
   }
 
   return (
@@ -50,8 +59,9 @@ export default function NuevaFacturaPage() {
 
       <FacturaForm
         onSubmit={onSubmit}
-        onCancel={() => router.push('/facturas')}
+        onCancel={onCancel}
         submitLabel="Crear factura"
+        draftKey={DRAFT_KEY}
       />
     </AppShell>
   );

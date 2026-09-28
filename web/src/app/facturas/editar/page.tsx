@@ -10,6 +10,10 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FacturaForm } from '@/components/facturas/FacturaForm';
+import {
+  FacturaCobranzaForm,
+  type FacturaCobranzaData,
+} from '@/components/facturas/FacturaCobranzaForm';
 import { useFactura, useFacturaMutations } from '@/hooks/useFacturas';
 import { useAuthStore } from '@/stores/auth';
 import type { FacturaFormData } from '@/lib/factura-schema';
@@ -45,10 +49,14 @@ function EditarFacturaInner() {
     );
   }
 
-  async function onSubmit(data: FacturaFormData) {
+  const esCobranzas = user?.rol === 'cobranzas';
+
+  // Cobranzas manda solo sus campos: el backend igual filtra por rol
+  // (FacturaService::CAMPOS_COBRANZA), acá evitamos mandar lo que rechazaría.
+  async function onSubmit(data: FacturaFormData | FacturaCobranzaData) {
     try {
       await update(id, data);
-      toast.success('Factura actualizada');
+      toast.success(esCobranzas ? 'Datos de cobro actualizados' : 'Factura actualizada');
       router.push(`/facturas/ver?id=${id}`);
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo actualizar'));
@@ -71,7 +79,15 @@ function EditarFacturaInner() {
         <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>
       )}
 
-      {!loading && factura && (
+      {!loading && factura && esCobranzas && (
+        <FacturaCobranzaForm
+          factura={factura}
+          onSubmit={onSubmit}
+          onCancel={() => router.push(`/facturas/ver?id=${id}`)}
+        />
+      )}
+
+      {!loading && factura && !esCobranzas && (
         <FacturaForm
           initial={factura}
           onSubmit={onSubmit}

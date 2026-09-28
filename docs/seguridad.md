@@ -63,6 +63,7 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 ### 2.6 Cambio forzado de password
 - El usuario admin del seed inicial tiene flag `must_change_password = true`
 - Al login: si flag activo, frontend redirige a `/cambiar-password` sin acceso al resto de la app
+- Backend: `MustChangePasswordMiddleware` bloquea todas las rutas protegidas (401 `MUST_CHANGE_PASSWORD`) mientras el flag esté activo; solo quedan accesibles `/auth/*`. Así no se puede usar la API por curl con la password temporal
 
 ### 2.7 2FA TOTP (Fase 3)
 - Tabla `users_2fa` opcional (no incluida en MVP)
@@ -86,6 +87,13 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 2. `authStore` está vacío → llamada silenciosa `POST /auth/refresh` (cookie va sola)
 3. Si 200 → access en memoria, continúa
 4. Si 401 → redirige a `/login`
+
+El refresh es **single-flight** en el cliente (`tryRefresh` en `lib/api.ts`): `hydrate()` y el interceptor de 401 comparten la misma promesa, y el interceptor de request espera un refresh en curso antes de salir sin `Authorization`. Dos refresh en paralelo con la misma cookie dispararían la detección de reuso del backend y cerrarían la sesión.
+
+### 3.2b Sesión expirada a mitad de trabajo
+- Si un refresh falla habiendo habido sesión (refresh vencido o familia revocada), `AppShell` **no desmonta la página**: muestra un aviso bloqueante "Tu sesión expiró" y deja lo que el usuario tenía en pantalla
+- El botón lleva a `/login?next=<ruta actual>`; tras el login se vuelve a esa ruta. `next` solo acepta rutas internas (`/...`, sin `//` ni esquema) para no ser un open redirect
+- Los forms de alta (factura, servicio) guardan un borrador en `sessionStorage` (`useFormDraft`) con debounce; se restaura al volver y se borra al guardar OK o cancelar. `sessionStorage` vive solo en la pestaña y nunca sale del browser
 
 ### 3.3 Logout
 - `POST /auth/logout` → server marca `revoked_at` en el refresh actual y `Set-Cookie` con `Max-Age=0`
@@ -114,7 +122,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://apithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'   (API: solo JSON, no renderiza nada)
 X-Permitted-Cross-Domain-Policies: none
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site
@@ -123,6 +131,16 @@ Cross-Origin-Resource-Policy: same-site
 Cabeceras removidas:
 - `X-Powered-By` (PHP)
 - `Server` (Apache, dejamos solo "Apache")
+
+**Frontend** (static export, sin PHP): las cabeceras las pone el `.htaccess` versionado en `web/public/.htaccess` (Next lo copia a `out/` en cada build). Incluye HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy y esta CSP:
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://apithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+```
+
+- `'unsafe-inline'` en script/style: Next static export inyecta scripts y estilos inline y no hay nonces sin server. No se permite `eval`
+- `font-src 'self'`: Saira se sirve local vía `next/font` (no se carga Google Fonts en runtime)
+- `connect-src`: solo el propio origen y el API. Si cambia el subdominio del API hay que actualizarla
 
 ---
 

@@ -43,6 +43,15 @@ ErrorDocument 404 /404.html
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+
+    # Content-Security-Policy.
+    # - script/style 'unsafe-inline': Next static export inyecta scripts y
+    #   estilos inline y no hay nonces sin server. Sin eval.
+    # - font 'self': Saira se sirve local via next/font (no Google Fonts en runtime).
+    # - connect-src: solo el propio origen y el API. Si cambia el subdominio del
+    #   API, actualizar aca.
+    # - img blob:/data: para previews y descargas generadas en el browser.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://apithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
 </IfModule>
 
 Options -Indexes

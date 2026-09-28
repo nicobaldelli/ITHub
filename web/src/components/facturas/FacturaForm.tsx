@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, X, AlertCircle } from 'lucide-react';
@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { facturaSchema, type FacturaFormData } from '@/lib/factura-schema';
 import { TIPOS_FACTURA } from '@/lib/cliente-schema';
 import { useClientesActivos } from '@/hooks/useClientes';
+import { useFormDraft } from '@/hooks/useFormDraft';
 import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess } from '@/types/api';
 import type { Factura } from '@/types/factura';
@@ -43,6 +44,8 @@ export interface FacturaFormProps {
   isUpdate?: boolean;
   /** Si está en true, no permite cambiar cliente_id (porque ya se creó la factura) */
   lockCliente?: boolean;
+  /** Si se pasa, lo tipeado se guarda como borrador en sessionStorage (ver useFormDraft) */
+  draftKey?: string;
 }
 
 function toFormValues(f?: Partial<Factura>): Partial<FacturaFormData> {
@@ -99,8 +102,13 @@ export function FacturaForm({
   submitLabel = 'Guardar',
   isUpdate = false,
   lockCliente = false,
+  draftKey,
 }: FacturaFormProps) {
   const { data: clientes, loading: loadingClientes } = useClientesActivos();
+  const form = useForm<FacturaFormData>({
+    resolver: zodResolver(facturaSchema),
+    defaultValues: toFormValues(initial),
+  });
   const {
     register,
     handleSubmit,
@@ -108,9 +116,18 @@ export function FacturaForm({
     setValue,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<FacturaFormData>({
-    resolver: zodResolver(facturaSchema),
-    defaultValues: toFormValues(initial),
+  } = form;
+
+  // Último cliente / cuota para los que YA se hizo autofill. Los efectos de
+  // abajo solo autocompletan cuando el valor cambia respecto de esto, así:
+  //  - en edición no se pisa el snapshot (arranca en el cliente de la factura)
+  //  - al restaurar un borrador no se pisa lo que el usuario había editado
+  const autofillClienteRef = useRef<number>(Number(initial?.cliente_id ?? 0));
+  const autofillCuotaRef = useRef<number | null>(null);
+
+  useFormDraft(draftKey, form, (v) => {
+    autofillClienteRef.current = Number(v.cliente_id ?? 0);
+    autofillCuotaRef.current = v.servicio_cuota_id ? Number(v.servicio_cuota_id) : null;
   });
 
   // La cuota es obligatoria solo en alta (en edición el campo no se muestra),
@@ -158,8 +175,10 @@ export function FacturaForm({
   useEffect(() => {
     if (isUpdate) return;
     if (!servicioCuotaId) return;
+    if (Number(servicioCuotaId) === autofillCuotaRef.current) return;
     const cuota = cuotas.find((c) => c.id === Number(servicioCuotaId));
     if (!cuota) return;
+    autofillCuotaRef.current = cuota.id;
     const importeBase = Number(cuota.importe);
     const ivaPct = Number(cuota.servicio.iva_porcentaje);
     const conIva = importeBase * (1 + ivaPct / 100);
@@ -186,13 +205,15 @@ export function FacturaForm({
   }, [moneda, tdc, importeConIva]);
 
   // Autofill al seleccionar cliente.
-  // En edición solo corre si se CAMBIÓ el cliente: el CUIT de la factura es un
-  // snapshot histórico y no debe pisarse con el CUIT actual del cliente.
+  // Solo corre si el cliente CAMBIÓ respecto del último autofill: en edición el
+  // CUIT de la factura es un snapshot histórico y no debe pisarse con el actual
+  // del cliente, y al restaurar un borrador no hay que pisar lo editado.
   useEffect(() => {
     if (!clienteId || loadingClientes) return;
-    if (isUpdate && Number(clienteId) === Number(initial?.cliente_id ?? 0)) return;
+    if (Number(clienteId) === autofillClienteRef.current) return;
     const cliente = clientes.find((c) => c.id === Number(clienteId));
     if (!cliente) return;
+    autofillClienteRef.current = cliente.id;
     setValue('cuit', cliente.cuit, { shouldDirty: true });
     setValue('cuit_pais', cliente.cuit_pais ?? null, { shouldDirty: true });
     if (!isUpdate) {

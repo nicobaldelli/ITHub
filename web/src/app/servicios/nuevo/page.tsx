@@ -9,8 +9,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { ServicioForm } from '@/components/servicios/ServicioForm';
 import { useServicioMutations } from '@/hooks/useServicios';
+import { clearFormDraft } from '@/hooks/useFormDraft';
 import { useAuthStore } from '@/stores/auth';
 import type { ServicioCreateData } from '@/lib/servicio-schema';
+
+const DRAFT_KEY = 'servicio-nuevo';
 
 export default function NuevoServicioPage() {
   const router = useRouter();
@@ -56,11 +59,17 @@ export default function NuevoServicioPage() {
       }
 
       const servicio = await create(payload);
+      clearFormDraft(DRAFT_KEY);
       toast.success('Servicio creado');
       router.push(`/servicios/ver?id=${servicio.id}`);
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo crear el servicio'));
     }
+  }
+
+  function onCancel() {
+    clearFormDraft(DRAFT_KEY);
+    router.push('/servicios');
   }
 
   return (
@@ -74,7 +83,7 @@ export default function NuevoServicioPage() {
         </Link>
       </div>
 
-      <ServicioForm onSubmit={onSubmit} onCancel={() => router.push('/servicios')} />
+      <ServicioForm onSubmit={onSubmit} onCancel={onCancel} draftKey={DRAFT_KEY} />
     </AppShell>
   );
 }

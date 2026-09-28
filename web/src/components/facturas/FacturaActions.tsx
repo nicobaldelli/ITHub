@@ -35,7 +35,9 @@ export function FacturaActions({ factura, onChanged }: FacturaActionsProps) {
   const yaAnulada = factura.estado === 'anulada';
 
   const puedeMarcarCobranza = esAdmin || esCobranzas;
-  const puedeEditar = esAdmin || (esVentas && esPropia && !yaCobrada && !yaAnulada);
+  // Cobranzas edita solo datos de cobro (form reducido en /facturas/editar)
+  const puedeEditar =
+    esAdmin || (esVentas && esPropia && !yaCobrada && !yaAnulada) || (esCobranzas && !yaAnulada);
   const puedeEliminar = esAdmin;
   const puedeMarcarEnviada = (esAdmin || esVentas) && factura.fecha_envio === null && !yaAnulada;
 
@@ -97,7 +99,7 @@ export function FacturaActions({ factura, onChanged }: FacturaActionsProps) {
           <Link href={`/facturas/editar?id=${factura.id}`}>
             <Button variant="secondary" size="sm">
               <Pencil className="h-4 w-4" />
-              Editar
+              {esCobranzas && !esAdmin ? 'Editar cobro' : 'Editar'}
             </Button>
           </Link>
         )}

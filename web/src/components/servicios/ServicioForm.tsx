@@ -12,24 +12,20 @@ import { Card } from '@/components/ui/card';
 import { servicioCreateSchema, type ServicioCreateData } from '@/lib/servicio-schema';
 import { TIPOS_FACTURA } from '@/lib/cliente-schema';
 import { useClientesActivos } from '@/hooks/useClientes';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 export interface ServicioFormProps {
   onSubmit: (data: ServicioCreateData) => Promise<void> | void;
   onCancel: () => void;
   defaultClienteId?: number;
+  /** Si se pasa, lo tipeado se guarda como borrador en sessionStorage (ver useFormDraft) */
+  draftKey?: string;
 }
 
-export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioFormProps) {
+export function ServicioForm({ onSubmit, onCancel, defaultClienteId, draftKey }: ServicioFormProps) {
   const { data: clientes, loading: loadingClientes } = useClientesActivos();
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<ServicioCreateData>({
+  const form = useForm<ServicioCreateData>({
     resolver: zodResolver(servicioCreateSchema),
     defaultValues: {
       tipo: 'mantenimiento',
@@ -43,6 +39,16 @@ export function ServicioForm({ onSubmit, onCancel, defaultClienteId }: ServicioF
       cuotas: [],
     },
   });
+  const {
+    control,
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = form;
+
+  useFormDraft(draftKey, form);
 
   const tipo = watch('tipo');
   const modo = watch('modo_facturacion');

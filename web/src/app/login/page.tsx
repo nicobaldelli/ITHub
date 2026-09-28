@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { LogIn, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,29 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
+  // useSearchParams exige Suspense en static export
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+/**
+ * Solo aceptamos rutas internas absolutas ("/facturas/nueva?x=1"). Cualquier
+ * cosa con esquema, host o "//" se descarta para no servir de open redirect.
+ */
+function destinoSeguro(next: string | null): string {
+  if (!next) return '/dashboard';
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/login')) {
+    return '/dashboard';
+  }
+  return next;
+}
+
+function LoginInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +44,11 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       toast.success(`Bienvenido, ${res.user.nombre}`);
-      router.push(res.user.must_change_password ? '/cambiar-password' : '/dashboard');
+      router.push(
+        res.user.must_change_password
+          ? '/cambiar-password'
+          : destinoSeguro(searchParams?.get('next') ?? null),
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión');
     } finally {
