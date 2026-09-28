@@ -161,6 +161,10 @@ final class BackupService
                     $conn->table($tabla)->delete();
                 }
 
+                // Los usuarios se reemplazan: ninguna sesión previa debe sobrevivir
+                // (los IDs podrían coincidir y un refresh viejo seguiría siendo válido).
+                $conn->table('refresh_tokens')->delete();
+
                 // Insertar en orden (padres primero), preservando IDs
                 foreach (self::TABLAS as $tabla) {
                     $rows = $tablas[$tabla] ?? [];

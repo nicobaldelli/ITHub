@@ -86,8 +86,10 @@ final class RateLimitMiddleware implements MiddlewareInterface
     private function buildKeys(string $profile, ServerRequestInterface $request): array
     {
         $ip = $this->clientIp($request);
-        $user = $request->getAttribute('user');
-        $userId = is_object($user) && property_exists($user, 'id') ? (string) $user->id : 'anon';
+        // `user_id` lo setea JwtAuthMiddleware. No usar property_exists() sobre el
+        // modelo Eloquent: los atributos van por __get y siempre daría false.
+        $userIdAttr = $request->getAttribute('user_id');
+        $userId = is_int($userIdAttr) && $userIdAttr > 0 ? (string) $userIdAttr : 'anon';
 
         return match ($profile) {
             'login' => array_filter([
@@ -116,14 +118,9 @@ final class RateLimitMiddleware implements MiddlewareInterface
 
     private function clientIp(ServerRequestInterface $request): string
     {
+        // Solo REMOTE_ADDR: sin un proxy confiable adelante, X-Forwarded-For lo
+        // controla el cliente y permitiría evadir el límite por IP.
         $server = $request->getServerParams();
-        $forwarded = $request->getHeaderLine('X-Forwarded-For');
-        if ($forwarded !== '') {
-            $first = trim(explode(',', $forwarded)[0]);
-            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
-                return $first;
-            }
-        }
         return $server['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 

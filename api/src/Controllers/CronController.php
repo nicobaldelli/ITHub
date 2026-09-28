@@ -97,12 +97,25 @@ final class CronController
         /** @var FacturacionAutomaticaService $facturacion */
         $facturacion = $this->container->get(FacturacionAutomaticaService::class);
 
-        return ResponseFactory::json($response, [
+        $resumen = [
             'recalcular' => ['facturas_marcadas_vencidas' => $vencidas],
             'rolling_window' => $rolling->extend(),
             'facturacion_automatica' => $facturacion->procesar(),
             'recordatorios' => $notif->dispatch(),
-        ]);
+        ];
+
+        // Purga de refresh tokens expirados o revocados hace más de 30 días
+        // (mismo criterio que scripts/cron_diario.php)
+        $limite = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $resumen['refresh_tokens_purgados'] = Capsule::connection()
+            ->table('refresh_tokens')
+            ->where(function ($q) use ($limite): void {
+                $q->where('expires_at', '<', $limite)
+                    ->orWhere('revoked_at', '<', $limite);
+            })
+            ->delete();
+
+        return ResponseFactory::json($response, $resumen);
     }
 
     /**

@@ -98,14 +98,8 @@ final class ErrorHandlerMiddleware implements MiddlewareInterface
 
     private function clientIp(ServerRequestInterface $request): string
     {
+        // Solo REMOTE_ADDR (X-Forwarded-For es controlable por el cliente)
         $server = $request->getServerParams();
-        $forwarded = $request->getHeaderLine('X-Forwarded-For');
-        if ($forwarded !== '') {
-            $first = trim(explode(',', $forwarded)[0]);
-            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
-                return $first;
-            }
-        }
         return $server['REMOTE_ADDR'] ?? 'unknown';
     }
 }

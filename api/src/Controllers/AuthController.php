@@ -208,6 +208,10 @@ final class AuthController
         }
     }
 
+    /**
+     * Cookie de refresh: host-only (sin Domain). Solo la necesita el API, no hay
+     * motivo para que viaje a otros subdominios de intellihelp.tech.
+     */
     private function setRefreshCookie(ResponseInterface $response, string $token, int $expiresAt): ResponseInterface
     {
         return $response->withAddedHeader('Set-Cookie', $this->buildCookie(
@@ -215,10 +219,15 @@ final class AuthController
             $token,
             $expiresAt,
             httpOnly: true,
-            path: $this->cookieCfg['refresh_path']
+            path: $this->cookieCfg['refresh_path'],
+            domain: ''
         ));
     }
 
+    /**
+     * Cookie CSRF: con Domain=COOKIE_DOMAIN (dominio padre) para que el frontend,
+     * que vive en otro subdominio, pueda leerla (double-submit).
+     */
     private function setCsrfCookie(ResponseInterface $response, string $token): ResponseInterface
     {
         return $response->withAddedHeader('Set-Cookie', $this->buildCookie(
@@ -226,7 +235,8 @@ final class AuthController
             $token,
             time() + $this->container->get('settings')['jwt']['refresh_ttl'],
             httpOnly: false,
-            path: '/'
+            path: '/',
+            domain: $this->cookieCfg['domain']
         ));
     }
 
@@ -237,12 +247,19 @@ final class AuthController
             '',
             0,
             httpOnly: true,
-            path: $this->cookieCfg['refresh_path']
+            path: $this->cookieCfg['refresh_path'],
+            domain: ''
         ));
     }
 
-    private function buildCookie(string $name, string $value, int $expiresAt, bool $httpOnly, string $path): string
-    {
+    private function buildCookie(
+        string $name,
+        string $value,
+        int $expiresAt,
+        bool $httpOnly,
+        string $path,
+        string $domain
+    ): string {
         $parts = [
             sprintf('%s=%s', $name, rawurlencode($value)),
             'Path=' . $path,
@@ -257,8 +274,7 @@ final class AuthController
             $parts[] = 'Expires=' . gmdate('D, d M Y H:i:s', $expiresAt) . ' GMT';
         }
 
-        // Domain solo se setea si no es localhost
-        $domain = $this->cookieCfg['domain'];
+        // Domain solo se setea si viene y no es localhost
         if ($domain !== '' && $domain !== 'localhost') {
             $parts[] = 'Domain=' . $domain;
         }

@@ -64,13 +64,8 @@ final class AuditoriaService
 
     public function clientIp(ServerRequestInterface $request): string
     {
-        $forwarded = $request->getHeaderLine('X-Forwarded-For');
-        if ($forwarded !== '') {
-            $first = trim(explode(',', $forwarded)[0]);
-            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
-                return $first;
-            }
-        }
+        // Solo REMOTE_ADDR: X-Forwarded-For lo puede falsear el cliente y la IP
+        // de auditoría debe ser confiable.
         $server = $request->getServerParams();
         return $server['REMOTE_ADDR'] ?? '0.0.0.0';
     }

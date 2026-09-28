@@ -57,6 +57,7 @@
         "migrate:rollback": "phinx rollback -c db/phinx.php",
         "seed": "phinx seed:run -c db/phinx.php",
         "audit": "composer audit",
+        "post-install-cmd": "Google\\Task\\Composer::cleanup",
         "post-update-cmd": "Google\\Task\\Composer::cleanup"
     },
     "config": {

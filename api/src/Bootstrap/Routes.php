@@ -19,6 +19,7 @@ use ITHub\Api\Controllers\HealthController;
 use ITHub\Api\Controllers\ServiciosController;
 use ITHub\Api\Controllers\UsuariosController;
 use ITHub\Api\Middleware\JwtAuthMiddleware;
+use ITHub\Api\Middleware\MustChangePasswordMiddleware;
 use ITHub\Api\Middleware\RateLimitMiddleware;
 use ITHub\Api\Middleware\RoleMiddleware;
 use Psr\Http\Message\ResponseInterface;
@@ -92,7 +93,9 @@ final class Routes
             // ↑ permisos finos resueltos en el service según rol (cobranzas edita subset)
             $g->patch('/facturas/{id:[0-9]+}/check-cobranza', [FacturasController::class, 'checkCobranza'])
                 ->add(new RoleMiddleware(['admin', 'cobranzas']));
-            $g->patch('/facturas/{id:[0-9]+}/marcar-enviada', [FacturasController::class, 'marcarEnviada'])
+            // POST (no PATCH): PHP solo parsea multipart/form-data ($_FILES) en POST,
+            // y este endpoint recibe el PDF de la factura.
+            $g->post('/facturas/{id:[0-9]+}/marcar-enviada', [FacturasController::class, 'marcarEnviada'])
                 ->add(new RoleMiddleware(['admin', 'ventas']));
             $g->delete('/facturas/{id:[0-9]+}', [FacturasController::class, 'destroy'])
                 ->add(new RoleMiddleware(['admin']));
@@ -211,6 +214,8 @@ final class Routes
             $g->post('/admin/cron/diario', [CronController::class, 'diario'])
                 ->add(new RoleMiddleware(['admin']));
         })
+            // Orden de ejecución (LIFO): JwtAuth → RateLimit → MustChangePassword → ruta
+            ->add(MustChangePasswordMiddleware::class)
             ->add(new RateLimitMiddleware('general'))
             ->add(JwtAuthMiddleware::class);
 

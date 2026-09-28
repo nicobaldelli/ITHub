@@ -23,12 +23,15 @@ final class Middleware
     {
         // IMPORTANTE: Slim ejecuta middlewares en orden LIFO (último agregado = primero en correr).
         // Layout final de ejecución (de más externo a más interno):
-        //   Cors → ErrorHandler → RequestId → Routing → SecurityHeaders → BodyParsing → JsonBody → controller
+        //   Cors → RequestId → ErrorHandler → Routing → SecurityHeaders → BodyParsing → JsonBody → controller
         //
         // Por qué Cors es el más externo:
         //   - Intercepta OPTIONS preflight antes de tocar Routing
         //   - Aplica las CORS headers SIEMPRE, incluso cuando hay errores (429, 401, 500),
         //     para que el browser pueda leer el status code real en lugar de un "CORS error".
+        // Por qué RequestId envuelve al ErrorHandler:
+        //   - Así el request ya trae `request_id` cuando el handler renderiza un error,
+        //     y la respuesta de error también sale con X-Request-ID (correlación log <-> cliente).
 
         // 1. (más interno) — Parseo estricto de JSON body
         $app->add(JsonBodyMiddleware::class);
@@ -42,11 +45,11 @@ final class Middleware
         // 4. Routing
         $app->addRoutingMiddleware();
 
-        // 5. Request ID
-        $app->add(RequestIdMiddleware::class);
-
-        // 6. Error handler global (catch-all, devuelve JSON)
+        // 5. Error handler global (catch-all, devuelve JSON)
         $app->add(ErrorHandlerMiddleware::class);
+
+        // 6. Request ID (envuelve al error handler)
+        $app->add(RequestIdMiddleware::class);
 
         // 7. Cors — el MÁS externo: envuelve TODO, incluido el ErrorHandler,
         //    para que las respuestas de error también tengan CORS headers.

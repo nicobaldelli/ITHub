@@ -85,3 +85,4 @@ backups/
 *.sql.gz
 *.sql.gpg
 web/.env.production
+.claude/settings.local.json

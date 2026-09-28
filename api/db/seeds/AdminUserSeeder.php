@@ -20,9 +20,11 @@ final class AdminUserSeeder extends AbstractSeed
             return;
         }
 
-        $email = getenv('SEED_ADMIN_EMAIL') ?: 'admin@intellihelp.tech';
-        $nombre = getenv('SEED_ADMIN_NOMBRE') ?: 'Admin';
-        $apellido = getenv('SEED_ADMIN_APELLIDO') ?: 'ITHub';
+        // Se aceptan por variable de entorno del shell (SEED_ADMIN_EMAIL=... phinx seed:run)
+        // o desde el .env (phpdotenv llena $_ENV, no getenv()).
+        $email = $this->envOr('SEED_ADMIN_EMAIL', 'admin@intellihelp.tech');
+        $nombre = $this->envOr('SEED_ADMIN_NOMBRE', 'Admin');
+        $apellido = $this->envOr('SEED_ADMIN_APELLIDO', 'ITHub');
 
         // Password aleatorio fuerte
         $password = $this->generateStrongPassword(16);
@@ -52,6 +54,12 @@ final class AdminUserSeeder extends AbstractSeed
         echo str_repeat('=', 70) . "\n";
         echo "  ATENCIÓN: must_change_password=true -> se forzará el cambio al primer login.\n";
         echo str_repeat('=', 70) . "\n\n";
+    }
+
+    private function envOr(string $key, string $default): string
+    {
+        $fromEnv = $_ENV[$key] ?? getenv($key);
+        return is_string($fromEnv) && trim($fromEnv) !== '' ? trim($fromEnv) : $default;
     }
 
     private function generateStrongPassword(int $length = 16): string

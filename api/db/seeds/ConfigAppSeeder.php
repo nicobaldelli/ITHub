@@ -20,6 +20,8 @@ final class ConfigAppSeeder extends AbstractSeed
                 'descripcion' => 'Email remitente'],
             ['clave' => 'smtp_from_name', 'valor' => 'ITHub Facturación', 'tipo' => 'string',
                 'descripcion' => 'Nombre del remitente'],
+            ['clave' => 'smtp_encryption', 'valor' => 'tls', 'tipo' => 'string',
+                'descripcion' => 'Cifrado SMTP: tls (puerto 587) o ssl (puerto 465)'],
             ['clave' => 'notif_dias_previos', 'valor' => '[3,1,0]', 'tipo' => 'json',
                 'descripcion' => 'Días antes del vencimiento para mandar recordatorio'],
             ['clave' => 'notif_dias_vencida', 'valor' => '[1,7,15,30]', 'tipo' => 'json',
@@ -30,11 +32,22 @@ final class ConfigAppSeeder extends AbstractSeed
                 'descripcion' => 'Hora a la que corre el cron de vencimientos'],
         ];
 
+        // Idempotente: `clave` es PK, así que solo se insertan las que faltan.
+        // Permite volver a correr el seed tras agregar claves nuevas sin pisar valores.
+        $insertadas = 0;
         foreach ($defaults as $row) {
+            $existe = $this->fetchRow(sprintf(
+                "SELECT clave FROM config_app WHERE clave = '%s' LIMIT 1",
+                addslashes($row['clave'])
+            ));
+            if ($existe) {
+                continue;
+            }
             $row['updated_at'] = $now;
             $this->table('config_app')->insert($row)->save();
+            $insertadas++;
         }
 
-        echo "[seed] Config inicial cargada.\n";
+        echo "[seed] Config inicial: {$insertadas} clave(s) nueva(s), " . (count($defaults) - $insertadas) . " ya existían.\n";
     }
 }

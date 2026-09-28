@@ -19,9 +19,12 @@ if (file_exists(__DIR__ . '/../.env')) {
 $dbHost = $_ENV['DB_HOST'] ?? 'localhost';
 $dbPort = (int) ($_ENV['DB_PORT'] ?? 3306);
 $dbName = $_ENV['DB_NAME'] ?? 'ithub';
-// Para migraciones se usa preferentemente el user con privilegios; cae al runtime si no está definido
-$dbUser = $_ENV['DB_MIGRATE_USER'] ?? $_ENV['DB_USER'] ?? 'ithub';
-$dbPass = $_ENV['DB_MIGRATE_PASS'] ?? $_ENV['DB_PASS'] ?? '';
+// Para migraciones se usa preferentemente el user con privilegios; cae al runtime
+// si no está definido O está vacío (phpdotenv setea '' para `DB_MIGRATE_USER=`,
+// y `??` no cubre ese caso).
+$migrateUser = $_ENV['DB_MIGRATE_USER'] ?? '';
+$dbUser = $migrateUser !== '' ? $migrateUser : ($_ENV['DB_USER'] ?? 'ithub');
+$dbPass = $migrateUser !== '' ? ($_ENV['DB_MIGRATE_PASS'] ?? '') : ($_ENV['DB_PASS'] ?? '');
 
 return [
     'paths' => [

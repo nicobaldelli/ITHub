@@ -25,6 +25,12 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final class ConfigController
 {
+    /**
+     * Claves que nunca se devuelven en claro: la respuesta solo indica si están
+     * configuradas. Se pueden sobrescribir pero no leer.
+     */
+    private const CLAVES_SENSIBLES = ['smtp_pass'];
+
     private readonly AuditoriaService $audit;
 
     public function __construct(private readonly ContainerInterface $container)
@@ -36,17 +42,30 @@ final class ConfigController
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $rows = ConfigApp::query()->orderBy('clave')->get();
-        $payload = $rows->map(fn (ConfigApp $c) => [
-            'clave' => $c->clave,
-            'valor' => $c->valor,
-            'value_parsed' => $c->value, // ya tipado por el modelo
-            'tipo' => $c->tipo,
-            'descripcion' => $c->descripcion,
-            'updated_by' => $c->updated_by,
-            'updated_at' => $c->updated_at?->format('c'),
-        ])->all();
+        $payload = $rows->map(fn (ConfigApp $c) => $this->presentar($c))->all();
 
         return ResponseFactory::json($response, $payload);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function presentar(ConfigApp $c): array
+    {
+        $sensible = in_array($c->clave, self::CLAVES_SENSIBLES, true);
+        $configurado = $c->valor !== null && $c->valor !== '';
+
+        return [
+            'clave' => $c->clave,
+            'valor' => $sensible ? null : $c->valor,
+            'value_parsed' => $sensible ? null : $c->value, // ya tipado por el modelo
+            'tipo' => $c->tipo,
+            'descripcion' => $c->descripcion,
+            'sensible' => $sensible,
+            'configurado' => $configurado,
+            'updated_by' => $c->updated_by,
+            'updated_at' => $c->updated_at?->format('c'),
+        ];
     }
 
     public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -68,29 +87,27 @@ final class ConfigController
         $raw = $body['valor'];
         $valor = $this->validarYSerializar($raw, $cfg->tipo);
 
+        $sensible = in_array($clave, self::CLAVES_SENSIBLES, true);
         $before = ['valor' => $cfg->valor];
         $cfg->valor = $valor;
         $cfg->updated_by = $actor->id;
         $cfg->save();
 
+        // Las claves sensibles no van en claro a la auditoría
         $this->audit->log(
             $actor->id,
             'config_app',
             null,
             Auditoria::ACCION_CONFIG_ACTUALIZADA,
-            ['clave' => $clave, 'before' => $before['valor'], 'after' => $valor],
+            [
+                'clave' => $clave,
+                'before' => $sensible ? '[oculto]' : $before['valor'],
+                'after' => $sensible ? '[oculto]' : $valor,
+            ],
             $request
         );
 
-        return ResponseFactory::json($response, [
-            'clave' => $cfg->clave,
-            'valor' => $cfg->valor,
-            'value_parsed' => $cfg->value,
-            'tipo' => $cfg->tipo,
-            'descripcion' => $cfg->descripcion,
-            'updated_by' => $cfg->updated_by,
-            'updated_at' => $cfg->updated_at?->format('c'),
-        ]);
+        return ResponseFactory::json($response, $this->presentar($cfg));
     }
 
     private function validarYSerializar(mixed $raw, string $tipo): ?string
