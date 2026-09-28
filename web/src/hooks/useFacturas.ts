@@ -122,7 +122,8 @@ export function useFacturaMutations() {
       if (data.tdc !== undefined && data.tdc !== null) {
         form.append('tdc', String(data.tdc));
       }
-      const res = await api.patch<ApiSuccess<Factura>>(
+      // POST y no PATCH: PHP solo parsea multipart (el PDF) en POST
+      const res = await api.post<ApiSuccess<Factura>>(
         `/facturas/${id}/marcar-enviada`,
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } },

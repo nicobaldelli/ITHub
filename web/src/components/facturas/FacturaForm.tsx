@@ -174,13 +174,16 @@ export function FacturaForm({
     return Number(importeConIva || 0);
   }, [moneda, tdc, importeConIva]);
 
-  // Autofill al seleccionar cliente
+  // Autofill al seleccionar cliente.
+  // En edición solo corre si se CAMBIÓ el cliente: el CUIT de la factura es un
+  // snapshot histórico y no debe pisarse con el CUIT actual del cliente.
   useEffect(() => {
     if (!clienteId || loadingClientes) return;
+    if (isUpdate && Number(clienteId) === Number(initial?.cliente_id ?? 0)) return;
     const cliente = clientes.find((c) => c.id === Number(clienteId));
     if (!cliente) return;
-    setValue('cuit', cliente.cuit, { shouldDirty: !isUpdate });
-    setValue('cuit_pais', cliente.cuit_pais ?? null, { shouldDirty: !isUpdate });
+    setValue('cuit', cliente.cuit, { shouldDirty: true });
+    setValue('cuit_pais', cliente.cuit_pais ?? null, { shouldDirty: true });
     if (!isUpdate) {
       setValue('banco', cliente.banco ?? null);
       setValue('cbu', cliente.cbu ?? null);

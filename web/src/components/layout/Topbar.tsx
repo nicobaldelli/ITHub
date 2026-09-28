@@ -1,7 +1,8 @@
 'use client';
 
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { KeyRound, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,10 @@ export function Topbar({ title }: { title?: string }) {
 
       {user && (
         <div className="relative">
+          {/* Overlay para cerrar el menú al hacer click afuera */}
+          {open && (
+            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+          )}
           <button
             onClick={() => setOpen((o) => !o)}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-neutral-100"
@@ -33,17 +38,18 @@ export function Topbar({ title }: { title?: string }) {
 
           <div
             className={cn(
-              'absolute right-0 mt-2 w-56 origin-top-right rounded-lg border border-neutral-200 bg-white py-1 shadow-card transition-all',
+              'absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-lg border border-neutral-200 bg-white py-1 shadow-card transition-all',
               open ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
           >
-            <a
-              href="/mi-perfil"
+            <Link
+              href="/cambiar-password"
+              onClick={() => setOpen(false)}
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50"
             >
-              <UserIcon className="h-4 w-4" />
-              Mi perfil
-            </a>
+              <KeyRound className="h-4 w-4" />
+              Cambiar password
+            </Link>
             <button
               onClick={logout}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"

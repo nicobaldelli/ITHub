@@ -16,6 +16,16 @@ import type { ApiErrorBody, RefreshResponse } from '@/types/api';
  *      * 419 / CSRF_INVALID -> mismo flujo (refresh + retry)
  *      * adjunta el header X-CSRF-Token si está en el store
  */
+/**
+ * En producción la URL del API es obligatoria: si falta, el build queda
+ * apuntando a localhost en silencio y el login falla con "Network Error".
+ * Se setea en `web/.env.production` antes de `pnpm build` (ver runbook).
+ */
+if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+  throw new Error(
+    'NEXT_PUBLIC_API_URL no está definida. Crear web/.env.production con la URL del API antes de buildear.',
+  );
+}
 const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
 
 /**
@@ -53,8 +63,21 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
 
+// ----------- Refresh single-flight -----------
+// Una sola llamada a /auth/refresh en vuelo a la vez. Es crítico: el backend
+// rota el refresh token y trata un segundo uso del mismo como robo (revoca
+// toda la familia). Si dos requests dispararan refresh en paralelo con la misma
+// cookie, la sesión se perdería.
+let refreshInFlight: Promise<string | null> | null = null;
+
 // ----------- Request interceptor -----------
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  // Si no hay access token pero hay un refresh en curso (típico en F5: hydrate
+  // corre a la vez que los hooks de datos), esperamos a que termine en vez de
+  // salir sin Authorization y provocar un 401 + segundo refresh.
+  if (!useAuthStore.getState().accessToken && refreshInFlight) {
+    await refreshInFlight;
+  }
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.set('Authorization', `Bearer ${accessToken}`);
@@ -67,9 +90,13 @@ api.interceptors.request.use((config) => {
 });
 
 // ----------- Response interceptor -----------
-let refreshInFlight: Promise<string | null> | null = null;
 
-async function tryRefresh(): Promise<string | null> {
+/**
+ * Renueva la sesión vía /auth/refresh (cookie HttpOnly). Devuelve el access
+ * token nuevo o null si no hay sesión. Único punto de entrada al refresh:
+ * lo usan el interceptor de 401 y `useAuth().hydrate()`.
+ */
+export async function tryRefresh(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = (async () => {
@@ -141,7 +168,14 @@ api.interceptors.response.use(
  */
 export function apiErrorMessage(err: unknown, fallback = 'Ocurrió un error'): string {
   if (axios.isAxiosError<ApiErrorBody>(err)) {
-    const apiError = err.response?.data?.error;
+    // Sin respuesta del server: caída de red, timeout o CORS. Mensaje en
+    // castellano en vez del "Network Error" crudo de Axios.
+    if (!err.response) {
+      return err.code === 'ECONNABORTED'
+        ? 'El servidor tardó demasiado en responder. Intentá de nuevo.'
+        : 'No se pudo conectar con el servidor. Revisá tu conexión.';
+    }
+    const apiError = err.response.data?.error;
     const base = apiError?.message ?? err.message ?? fallback;
 
     const details = apiError?.details;

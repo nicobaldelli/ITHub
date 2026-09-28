@@ -4,8 +4,6 @@ import { useState } from 'react';
 import {
   Save,
   RefreshCw,
-  Eye,
-  EyeOff,
   Send,
   RotateCcw,
   CalendarRange,
@@ -233,12 +231,44 @@ function BackupCard() {
   );
 }
 
-function CronManualCard() {
-  const [loading, setLoading] = useState<string | null>(null);
+type CronEndpoint = 'recordatorios' | 'recalcular' | 'rolling-window' | 'facturar-automatico' | 'diario';
 
-  async function disparar(
-    endpoint: 'recordatorios' | 'recalcular' | 'rolling-window' | 'facturar-automatico' | 'diario',
-  ) {
+/** Qué hace cada tarea y si tiene efectos hacia afuera (mails, facturas). */
+const CRON_INFO: Record<CronEndpoint, { titulo: string; efecto: string; externo: boolean }> = {
+  diario: {
+    titulo: 'Cron diario (todo)',
+    efecto:
+      'Marca facturas vencidas, extiende cuotas indefinidas, genera las facturas automáticas de las cuotas que llegaron a su fecha y envía los recordatorios por mail pendientes.',
+    externo: true,
+  },
+  recordatorios: {
+    titulo: 'Enviar recordatorios',
+    efecto: 'Envía por mail los recordatorios de vencimiento pendientes a los clientes.',
+    externo: true,
+  },
+  recalcular: {
+    titulo: 'Recalcular vencidas',
+    efecto: 'Marca como vencidas las facturas emitidas cuyo vencimiento ya pasó. No envía nada.',
+    externo: false,
+  },
+  'rolling-window': {
+    titulo: 'Extender cuotas indefinidas',
+    efecto: 'Genera las próximas cuotas de los mantenimientos sin fecha de fin. No envía nada.',
+    externo: false,
+  },
+  'facturar-automatico': {
+    titulo: 'Facturar cuotas vencidas',
+    efecto: 'Crea facturas AUTO-x para todas las cuotas pendientes que ya llegaron a su fecha.',
+    externo: true,
+  },
+};
+
+function CronManualCard() {
+  const [loading, setLoading] = useState<CronEndpoint | null>(null);
+  const [pendiente, setPendiente] = useState<CronEndpoint | null>(null);
+
+  async function disparar(endpoint: CronEndpoint) {
+    setPendiente(null);
     setLoading(endpoint);
     try {
       const res = await api.post(`/admin/cron/${endpoint}`);
@@ -251,6 +281,8 @@ function CronManualCard() {
     }
   }
 
+  const info = pendiente ? CRON_INFO[pendiente] : null;
+
   return (
     <Card className="p-5">
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
@@ -259,47 +291,76 @@ function CronManualCard() {
       <p className="mb-4 text-xs text-neutral-500">
         Estos endpoints normalmente corren por cron automático en Hostinger. Acá los podés
         disparar a mano para testear o regenerar estado.{' '}
-        <strong>&quot;Cron diario&quot;</strong> corre las 3 tareas juntas — es lo que conviene
+        <strong>&quot;Cron diario&quot;</strong> corre todas las tareas juntas — es lo que conviene
         schedulear.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => disparar('diario')} loading={loading === 'diario'}>
+        <Button onClick={() => setPendiente('diario')} loading={loading === 'diario'}>
           <Zap className="h-4 w-4" />
-          Cron diario (todo)
+          {CRON_INFO.diario.titulo}
         </Button>
         <Button
-          onClick={() => disparar('recordatorios')}
+          onClick={() => setPendiente('recordatorios')}
           loading={loading === 'recordatorios'}
           variant="secondary"
         >
           <Send className="h-4 w-4" />
-          Enviar recordatorios
+          {CRON_INFO.recordatorios.titulo}
         </Button>
         <Button
-          onClick={() => disparar('recalcular')}
+          onClick={() => setPendiente('recalcular')}
           loading={loading === 'recalcular'}
           variant="secondary"
         >
           <RotateCcw className="h-4 w-4" />
-          Recalcular vencidas
+          {CRON_INFO.recalcular.titulo}
         </Button>
         <Button
-          onClick={() => disparar('rolling-window')}
+          onClick={() => setPendiente('rolling-window')}
           loading={loading === 'rolling-window'}
           variant="secondary"
         >
           <CalendarRange className="h-4 w-4" />
-          Extender cuotas indefinidas
+          {CRON_INFO['rolling-window'].titulo}
         </Button>
         <Button
-          onClick={() => disparar('facturar-automatico')}
+          onClick={() => setPendiente('facturar-automatico')}
           loading={loading === 'facturar-automatico'}
           variant="secondary"
         >
           <Send className="h-4 w-4" />
-          Facturar cuotas vencidas
+          {CRON_INFO['facturar-automatico'].titulo}
         </Button>
       </div>
+
+      {/* Confirmación: estas tareas generan facturas y mandan mails reales */}
+      <Dialog
+        open={pendiente !== null}
+        onClose={() => setPendiente(null)}
+        title={info ? `Ejecutar "${info.titulo}"` : ''}
+        size="md"
+      >
+        {info && (
+          <>
+            <p className="text-sm text-neutral-700">{info.efecto}</p>
+            {info.externo && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                Esta tarea tiene efectos reales (facturas nuevas o mails a clientes). No se
+                puede deshacer desde acá.
+              </div>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setPendiente(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => pendiente && disparar(pendiente)}>
+                <Zap className="h-4 w-4" />
+                Ejecutar ahora
+              </Button>
+            </div>
+          </>
+        )}
+      </Dialog>
     </Card>
   );
 }
@@ -316,10 +377,11 @@ function ConfigRow({
   ) => Promise<ConfigEntry>;
   onSaved: () => void;
 }) {
-  const esSensible = CLAVES_SENSIBLES.includes(entry.clave);
+  // Las claves sensibles llegan con valor null: el API nunca las devuelve en claro.
+  // Solo se pueden sobrescribir (escribir un valor nuevo y guardar).
+  const esSensible = entry.sensible || CLAVES_SENSIBLES.includes(entry.clave);
   const [valor, setValor] = useState<string>(() => entry.valor ?? '');
   const [saving, setSaving] = useState(false);
-  const [showSensible, setShowSensible] = useState(!esSensible);
 
   const dirty = valor !== (entry.valor ?? '');
 
@@ -349,6 +411,7 @@ function ConfigRow({
 
       await onSave(entry.clave, payload);
       toast.success(`Clave "${entry.clave}" actualizada`);
+      if (esSensible) setValor('');
       onSaved();
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo guardar'));
@@ -393,22 +456,24 @@ function ConfigRow({
             <option value="false">false</option>
           </select>
         ) : (
-          <div className="relative">
+          <div>
             <Input
-              type={esSensible && !showSensible ? 'password' : entry.tipo === 'int' ? 'number' : 'text'}
+              type={esSensible ? 'password' : entry.tipo === 'int' ? 'number' : 'text'}
+              autoComplete={esSensible ? 'new-password' : undefined}
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              className={esSensible ? 'pr-10' : ''}
+              placeholder={
+                esSensible
+                  ? entry.configurado
+                    ? 'Configurada (no se muestra). Escribí una nueva para reemplazarla.'
+                    : 'Sin configurar'
+                  : undefined
+              }
             />
             {esSensible && (
-              <button
-                type="button"
-                onClick={() => setShowSensible((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700"
-                aria-label={showSensible ? 'Ocultar' : 'Mostrar'}
-              >
-                {showSensible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              <p className="mt-1 text-[10px] text-neutral-400">
+                Por seguridad este valor no se puede ver una vez guardado, solo reemplazar.
+              </p>
             )}
           </div>
         )}

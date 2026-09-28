@@ -1,0 +1,49 @@
+# ============================================================
+# ITHub Web - config del web server para el static export
+#
+# Next copia todo lo que hay en web/public/ a out/ en cada build, así que
+# este archivo llega a public_html junto con el resto del sitio.
+# Escrito para Apache y LiteSpeed (Hostinger).
+# ============================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Forzar HTTPS
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Las rutas de la app son carpetas con index.html (trailingSlash: true),
+    # así que /facturas resuelve solo. Lo que no exista va al 404 de Next.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ /404.html [L]
+</IfModule>
+
+ErrorDocument 404 /404.html
+
+# Assets con hash en el nombre: cache larga e inmutable
+<FilesMatch "\.(js|css|woff2|woff|webp|png|jpg|jpeg|svg|ico)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+
+# HTML nunca se cachea: cada deploy tiene que verse al instante
+<FilesMatch "\.html$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+</IfModule>
+
+Options -Indexes
+AddDefaultCharset UTF-8

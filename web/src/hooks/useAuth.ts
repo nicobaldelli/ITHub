@@ -3,9 +3,9 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { api, apiErrorMessage } from '@/lib/api';
+import { api, apiErrorMessage, tryRefresh } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
-import type { ApiSuccess, LoginResponse, RefreshResponse, User } from '@/types/api';
+import type { ApiSuccess, LoginResponse, User } from '@/types/api';
 
 export function useAuth() {
   const router = useRouter();
@@ -41,24 +41,21 @@ export function useAuth() {
     }
   }, [clear, router]);
 
-  /** Intenta recuperar sesión leyendo la cookie de refresh. */
+  /**
+   * Intenta recuperar sesión leyendo la cookie de refresh.
+   * Usa `tryRefresh` (single-flight) y NO un post directo: si a la vez un hook
+   * de datos recibe 401, comparte esta misma promesa en vez de disparar un
+   * segundo refresh que el backend trataría como reuso del token.
+   */
   const hydrate = useCallback(async () => {
     try {
-      const resp = await api.post<ApiSuccess<RefreshResponse>>('/auth/refresh');
-      const data = resp.data.data;
-      setSession({
-        user: data.user,
-        accessToken: data.access_token,
-        accessExpiresAt: data.access_expires_at,
-      });
-      return data.user;
-    } catch {
-      clear();
-      return null;
+      const token = await tryRefresh();
+      if (!token) return null;
+      return useAuthStore.getState().user;
     } finally {
       setHydrated(true);
     }
-  }, [setSession, clear, setHydrated]);
+  }, [setHydrated]);
 
   const changePassword = useCallback(
     async (newPassword: string, currentPassword?: string) => {
