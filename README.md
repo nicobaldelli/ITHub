@@ -20,11 +20,13 @@ Deploy productivo en Hostinger:
 | Documento | Contenido |
 |---|---|
 | [`docs/seguridad.md`](docs/seguridad.md) | Arquitectura de seguridad, OWASP, hardening |
-| [`docs/deploy-hostinger.md`](docs/deploy-hostinger.md) | Paso a paso de deploy en Hostinger |
+| [`docs/runbook-deploy-manual.md`](docs/runbook-deploy-manual.md) | **Deploy a Hostinger** (comandos paso a paso, manual) |
 | [`docs/google-drive-setup.md`](docs/google-drive-setup.md) | Configuración del Service Account de Google Drive |
-| [`docs/manual-usuario.md`](docs/manual-usuario.md) | Manual de usuario final |
-| [`api/README.md`](api/README.md) | Setup, comandos y arquitectura del backend |
+| [`docs/endpoints.md`](docs/endpoints.md) | Referencia de endpoints del API |
+| [`docs/schema.md`](docs/schema.md) | Modelo de datos |
+| [`docs/estructura.md`](docs/estructura.md) | Estructura del monorepo |
 | [`web/README.md`](web/README.md) | Setup y arquitectura del frontend |
+| [`docs/deploy-hostinger.md`](docs/deploy-hostinger.md) | Guía vieja de deploy (obsoleta, solo referencia) |
 
 ---
 
@@ -45,14 +47,14 @@ Luego:
 ```bash
 # Instalar dependencias
 docker compose exec api composer install
-docker compose exec web npm install
+docker compose exec web pnpm install
 
 # Correr migraciones y seed inicial
-docker compose exec api vendor/bin/phinx migrate
-docker compose exec api vendor/bin/phinx seed:run
+docker compose exec api vendor/bin/phinx migrate -c db/phinx.php
+docker compose exec api vendor/bin/phinx seed:run -c db/phinx.php
 
 # Levantar frontend en modo dev
-docker compose exec web npm run dev
+docker compose exec web pnpm dev
 ```
 
 Accesos por defecto:

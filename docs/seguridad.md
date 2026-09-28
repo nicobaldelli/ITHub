@@ -51,7 +51,7 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 - TTL **7 días**
 - **Rotación obligatoria:** cada `/auth/refresh` invalida el refresh anterior y emite uno nuevo
 - **Detección de reuso:** si llega un refresh ya marcado como `revoked_at`, se invalida toda la familia de tokens del usuario (posible robo) y se fuerza re-login
-- Se transmite en **cookie HttpOnly + Secure + SameSite=Strict**, `Domain=apithub.intellihelp.tech`, `Path=/api/v1/auth`
+- Se transmite en **cookie HttpOnly + Secure + SameSite=Strict**, host-only (sin `Domain`, queda scoped a `apithub.intellihelp.tech`), `Path=/api/v1/auth`. La cookie CSRF (no-HttpOnly) sí lleva `Domain=.intellihelp.tech` para que el frontend en `ithub.intellihelp.tech` pueda leerla
 
 ### 2.5 Lockout / fuerza bruta
 - **5 intentos fallidos** por email en 15 min → bloqueo temporal del email

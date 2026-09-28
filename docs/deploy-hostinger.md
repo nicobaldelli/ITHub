@@ -1,5 +1,11 @@
 # Deploy a Hostinger — ITHub
 
+> **OBSOLETO.** Esta guía quedó desactualizada (paths viejos como
+> `~/domains/intellihelp.tech/public_html/ithub-api/`, variable `DB_PASSWORD`
+> que el código no lee, `phinx migrate` sin `-c db/phinx.php`). Se conserva
+> solo como referencia de contexto. **Para deployar usar
+> [`runbook-deploy-manual.md`](runbook-deploy-manual.md).**
+
 Guía paso a paso para deployar ITHub en Hostinger usando Business o Cloud.
 Asume hosting compartido con SSH habilitado (Business plan o superior) y
 dos subdominios separados.

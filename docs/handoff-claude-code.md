@@ -8,7 +8,11 @@
 
 **Repo:** https://github.com/nicobaldelli/ITHub
 **Rama:** `master`
-**Último commit:** `8de1b02` — `docs: deploy a Hostinger + setup de Google Drive`
+**Último commit:** ver `git log --oneline -1` (este archivo no se actualiza en cada commit).
+
+**Estado:** MVP + extras terminados. En pleno **deploy manual a Hostinger**
+siguiendo `docs/runbook-deploy-manual.md` (dominios `ithub.intellihelp.tech`
+y `apithub.intellihelp.tech`, `COOKIE_DOMAIN=.intellihelp.tech`).
 
 ### ✅ Backend completo
 - Auth JWT con refresh rotation, lockout, audit (chunk 1)
@@ -70,9 +74,17 @@
 ### 🚧 Pendiente del frontend (no críticos)
 - Wizard de import histórico (cuando se haga el backend)
 
+### ✅ Extras posteriores al MVP
+- Facturación automática por cron (facturas `AUTO-x` al llegar la fecha de cada cuota)
+- "Marcar enviada": número real + fechas + TDC + PDF obligatorio a Drive (`cliente/año/mes`)
+- Archivados (soft-delete restaurable), copia de seguridad JSON (export/import)
+- Runbook de deploy manual a Hostinger (`docs/runbook-deploy-manual.md`)
+- Revisión pre-deploy: race de doble refresh en F5, PATCH multipart, fallback de Phinx,
+  `must_change_password` enforced en backend, `.htaccess` portables a LiteSpeed
+
 ### 🚧 Otros pendientes
-- Deploy Hostinger (doc paso a paso)
-- READMEs detallados por componente
+- Terminar el deploy a Hostinger (ver runbook)
+- Tests automatizados (PHPUnit instalado, sin tests)
 
 ---
 
@@ -143,7 +155,7 @@ si vas a migrar datos preexistentes. No es crítico para arrancar.
 Las dos opciones recomendadas para la próxima sesión son:
 
 **Opción A — Probar todo en local y deployar:**
-Seguir `docs/deploy-hostinger.md` para publicar. Configurar Google Drive
+Seguir `docs/runbook-deploy-manual.md` para publicar. Configurar Google Drive
 con `docs/google-drive-setup.md`. Después de validar productivo, ahí sí
 tiene sentido agregar el import histórico.
 

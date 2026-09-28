@@ -67,10 +67,10 @@ humano esté logueado.
 ### 5.1 Subir el JSON al servidor
 
 ```bash
-scp service-account.json u123456789@<host>:~/domains/intellihelp.tech/public_html/ithub-api/api/storage/credentials/
+scp -P <SSH_PORT> service-account.json <SSH_USER>@<SSH_HOST>:~/domains/apithub.intellihelp.tech/app/api/storage/credentials/
 
 # En el servidor:
-chmod 0600 storage/credentials/service-account.json
+chmod 0600 ~/domains/apithub.intellihelp.tech/app/api/storage/credentials/service-account.json
 ```
 
 > El path por defecto es `storage/credentials/service-account.json`.
