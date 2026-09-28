@@ -57,7 +57,7 @@ ITHub/
 │   │   └── index.php               Front controller (único entrypoint web)
 │   │
 │   ├── scripts/
-│   │   └── test_cronograma.php     Sanity check del CronogramaGenerator
+│   │   └── cron_lock.php           Lock por archivo para los crons
 │   │
 │   ├── src/
 │   │   ├── Bootstrap/

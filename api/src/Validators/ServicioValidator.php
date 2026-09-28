@@ -60,8 +60,9 @@ final class ServicioValidator
             $errors['importe_base'] = 'Requerido, mayor a 0';
         }
 
-        // IVA: 0, 10.5 o 21
-        if (isset($data['iva_porcentaje'])) {
+        // IVA: 0, 10.5 o 21. Un string vacío (form sin completar) no es 0: se
+        // ignora y aplica el default, igual que en validateUpdate.
+        if (isset($data['iva_porcentaje']) && $data['iva_porcentaje'] !== '') {
             $iva = (float) $data['iva_porcentaje'];
             if (!in_array($iva, [0.0, 10.5, 21.0], true)) {
                 $errors['iva_porcentaje'] = 'Permitidos: 0, 10.5 o 21';
@@ -330,7 +331,8 @@ final class ServicioValidator
                 ? trim((string) $data['descripcion']) : null,
             'moneda' => $data['moneda'] ?? 'ARS',
             'importe_base' => (float) $data['importe_base'],
-            'iva_porcentaje' => isset($data['iva_porcentaje']) ? (float) $data['iva_porcentaje'] : 21.0,
+            'iva_porcentaje' => isset($data['iva_porcentaje']) && $data['iva_porcentaje'] !== ''
+                ? (float) $data['iva_porcentaje'] : 21.0,
             'template_factura' => isset($data['template_factura']) && trim((string) $data['template_factura']) !== ''
                 ? trim((string) $data['template_factura']) : null,
             'tipo_factura_default' => isset($data['tipo_factura_default']) && $data['tipo_factura_default'] !== ''
@@ -375,7 +377,9 @@ final class ServicioValidator
     private static function isDate(string $value): bool
     {
         $d = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
-        if ($d === false) {
+        // createFromFormat "desborda" fechas inexistentes (2026-02-30 -> 2026-03-02)
+        // en vez de fallar: se acepta solo si la fecha se reconstruye idéntica.
+        if ($d === false || $d->format('Y-m-d') !== $value) {
             return false;
         }
         $year = (int) $d->format('Y');

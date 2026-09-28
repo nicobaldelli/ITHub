@@ -204,7 +204,9 @@ final class FacturaValidator
     private static function isValidDate(string $value): bool
     {
         $d = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
-        if ($d === false) {
+        // createFromFormat "desborda" fechas inexistentes (2026-02-30 -> 2026-03-02)
+        // en vez de fallar: se acepta solo si la fecha se reconstruye idéntica.
+        if ($d === false || $d->format('Y-m-d') !== $value) {
             return false;
         }
         $year = (int) $d->format('Y');

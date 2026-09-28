@@ -82,9 +82,13 @@ y `apithub.intellihelp.tech`, `COOKIE_DOMAIN=.intellihelp.tech`).
 - Revisión pre-deploy: race de doble refresh en F5, PATCH multipart, fallback de Phinx,
   `must_change_password` enforced en backend, `.htaccess` portables a LiteSpeed
 
+- Suite PHPUnit: 413 tests (unitarios de validadores, JWT, cronograma, helpers;
+  integración de auth y facturación automática con SQLite en memoria). `cd api && composer test`.
+  CI en GitHub Actions (`.github/workflows/ci.yml`)
+
 ### 🚧 Otros pendientes
 - Terminar el deploy a Hostinger (ver runbook)
-- Tests automatizados (PHPUnit instalado, sin tests)
+- Import histórico de facturas (wizard Excel/CSV), opcional
 
 ---
 
