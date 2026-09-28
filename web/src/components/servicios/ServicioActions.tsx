@@ -153,7 +153,7 @@ function PausarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Pausar servicio" size="sm">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Pausar servicio" size="sm">
       <p className="text-sm text-neutral-700">
         ¿Pausar <strong>{servicio.nombre}</strong>? Mientras esté pausado no se generan ni emiten
         cuotas. Vas a poder reanudarlo después decidiendo qué hacer con las cuotas pasadas.
@@ -190,7 +190,7 @@ function ReanudarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Reanudar servicio" size="md">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Reanudar servicio" size="md">
       <p className="text-sm text-neutral-700">
         ¿Cómo manejamos las cuotas pendientes con fecha anterior a hoy?
       </p>
@@ -261,7 +261,7 @@ function CancelarModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Cancelar servicio" size="sm">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Cancelar servicio" size="sm">
       <p className="text-sm text-neutral-700">
         ¿Cancelar <strong>{servicio.nombre}</strong>?
       </p>
@@ -310,7 +310,7 @@ function ExtenderModal({ open, servicio, onClose, onDone }: ModalBaseProps) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Extender servicio" size="md">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Extender servicio" size="md">
       <p className="text-sm text-neutral-700">
         Fin actual:{' '}
         <strong>
@@ -411,7 +411,7 @@ function EliminarModal({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Eliminar servicio" size="sm">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Eliminar servicio" size="sm">
       <p className="text-sm text-neutral-700">
         ¿Eliminar <strong>{servicio.nombre}</strong>?
       </p>

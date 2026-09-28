@@ -210,7 +210,7 @@ function ConfirmarEstadoModal({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={title} size="sm">
+    <Dialog open={open} onClose={() => !loading && onClose()} title={title} size="sm">
       <p className="text-sm text-neutral-700">{message}</p>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose} disabled={loading}>
@@ -328,7 +328,7 @@ function FacturarCuotaModal({ open, servicio, cuota, onClose, onDone }: Facturar
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Facturar cuota" size="lg">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Facturar cuota" size="lg">
       <div className="mb-4 rounded-lg bg-neutral-50 p-3 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-neutral-500">Cuota</span>

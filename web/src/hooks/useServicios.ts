@@ -24,19 +24,21 @@ export function useServicios(filters: ServiciosFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Query string como dependencia estable (ver useFacturas)
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v === undefined || v === '' || v === false) return;
+    params.set(k, String(v));
+  });
+  const query = params.toString();
+
   useEffect(() => {
     let canceled = false;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v === undefined || v === '' || v === false) return;
-      params.set(k, String(v));
-    });
-
     api
-      .get<ApiSuccess<Servicio[]>>(`/servicios?${params.toString()}`)
+      .get<ApiSuccess<Servicio[]>>(`/servicios?${query}`)
       .then((res) => {
         if (canceled) return;
         setData(res.data.data);
@@ -48,7 +50,7 @@ export function useServicios(filters: ServiciosFilters) {
     return () => {
       canceled = true;
     };
-  }, [JSON.stringify(filters)]);
+  }, [query]);
 
   return { data, meta, loading, error };
 }

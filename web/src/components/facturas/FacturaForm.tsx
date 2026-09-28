@@ -106,11 +106,22 @@ export function FacturaForm({
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FacturaFormData>({
     resolver: zodResolver(facturaSchema),
     defaultValues: toFormValues(initial),
   });
+
+  // La cuota es obligatoria solo en alta (en edición el campo no se muestra),
+  // por eso se valida acá y no en el schema compartido.
+  function submitConCuota(data: FacturaFormData) {
+    if (!isUpdate && !data.servicio_cuota_id) {
+      setError('servicio_cuota_id', { message: 'Seleccioná la cuota a facturar' });
+      return;
+    }
+    return onSubmit(data);
+  }
 
   const moneda = watch('moneda');
   const tdc = watch('tdc');
@@ -205,7 +216,7 @@ export function FacturaForm({
   }, [clienteId, loadingClientes]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(submitConCuota)} className="space-y-4">
       {/* Identificación */}
       <Card className="p-5">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">

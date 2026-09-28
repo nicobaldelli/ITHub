@@ -21,25 +21,32 @@ export interface FacturasFilters {
   sort_dir?: 'asc' | 'desc';
 }
 
+function buildQuery(filters: FacturasFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v === undefined || v === '' || v === false) return;
+    params.set(k, String(v));
+  });
+  return params.toString();
+}
+
 export function useFacturas(filters: FacturasFilters) {
   const [data, setData] = useState<Factura[]>([]);
   const [meta, setMeta] = useState<ApiMeta>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // La query string se calcula fuera del efecto: es un string, así que sirve
+  // como dependencia estable aunque el objeto `filters` cambie de identidad.
+  const query = buildQuery(filters);
+
   useEffect(() => {
     let canceled = false;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v === undefined || v === '' || v === false) return;
-      params.set(k, String(v));
-    });
-
     api
-      .get<ApiSuccess<Factura[]>>(`/facturas?${params.toString()}`)
+      .get<ApiSuccess<Factura[]>>(`/facturas?${query}`)
       .then((res) => {
         if (canceled) return;
         setData(res.data.data);
@@ -51,7 +58,7 @@ export function useFacturas(filters: FacturasFilters) {
     return () => {
       canceled = true;
     };
-  }, [JSON.stringify(filters)]); // simple, recalcula al cambiar filtros
+  }, [query]);
 
   return { data, meta, loading, error };
 }

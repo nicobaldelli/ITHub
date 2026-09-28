@@ -81,18 +81,16 @@ final class ArchivosController
             throw new ValidationException('Error al subir el archivo', ['archivo' => 'upload_error_' . $upload->getError()]);
         }
 
-        // Magic bytes check con finfo (defensa en profundidad)
-        $tmpStream = $upload->getStream();
-        $bytes = $tmpStream->read(512);
-        $tmpStream->rewind();
+        // Magic bytes check con finfo sobre el archivo COMPLETO (defensa en
+        // profundidad). Con solo los primeros bytes finfo no distingue un xlsx/docx
+        // de un zip cualquiera.
+        $contenido = $upload->getStream()->getContents();
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $detectedMime = (string) ($finfo->buffer($bytes) ?: 'application/octet-stream');
-        $reportedMime = $upload->getClientMediaType() ?: $detectedMime;
+        $detectedMime = (string) ($finfo->buffer($contenido) ?: 'application/octet-stream');
+        $reportedMime = (string) ($upload->getClientMediaType() ?: '');
+        $nombreArchivo = $upload->getClientFilename() ?? 'archivo';
 
-        // El cliente declara X mime, finfo detecta Y mime. Usamos el detectado para
-        // validar contra la whitelist (más seguro). Aunque permitimos que cierto tipo
-        // de archivos como CSV puedan reportar texto/plain o application/csv.
-        $mimeFinal = $detectedMime !== '' ? $detectedMime : $reportedMime;
+        $mimeFinal = $this->normalizarMime($detectedMime, $reportedMime, $nombreArchivo, $contenido);
 
         $clienteNombre = $factura->cliente?->razon_social ?? 'cliente';
         $fechaFactura = $factura->fecha_factura ?? new \DateTimeImmutable();
@@ -100,10 +98,10 @@ final class ArchivosController
         $result = $this->drive->uploadFacturaArchivo(
             $clienteNombre,
             $fechaFactura,
-            $upload->getClientFilename() ?? 'archivo',
+            $nombreArchivo,
             $mimeFinal,
-            $upload->getSize() ?? 0,
-            $tmpStream->getContents(),
+            strlen($contenido),
+            $contenido,
         );
 
         $archivo = FacturaArchivo::create([
@@ -165,6 +163,42 @@ final class ArchivosController
         );
 
         return ResponseFactory::noContent($response);
+    }
+
+    /**
+     * Resuelve el MIME a validar contra la whitelist. Se prioriza lo que detecta
+     * finfo (magic bytes), pero hay dos casos en los que finfo no alcanza y se
+     * confirma con una segunda verificación sobre el contenido:
+     *  - xlsx/docx: finfo devuelve application/zip. Son válidos solo si el zip
+     *    contiene el manifiesto OOXML "[Content_Types].xml".
+     *  - csv: finfo devuelve text/plain. Se acepta como text/csv solo si el
+     *    cliente lo declaró csv o la extensión es .csv.
+     */
+    private function normalizarMime(string $detected, string $reported, string $nombre, string $contenido): string
+    {
+        $ext = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        $officeMimes = [
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+
+        if (
+            in_array($detected, ['application/zip', 'application/octet-stream'], true)
+            && isset($officeMimes[$ext])
+            && str_starts_with($contenido, "PK\x03\x04")
+            && str_contains($contenido, '[Content_Types].xml')
+        ) {
+            return $officeMimes[$ext];
+        }
+
+        if (
+            $detected === 'text/plain'
+            && ($ext === 'csv' || in_array($reported, ['text/csv', 'application/csv'], true))
+        ) {
+            return 'text/csv';
+        }
+
+        return $detected !== '' ? $detected : $reported;
     }
 
     private function resolveFactura(int $id): FacturaVenta

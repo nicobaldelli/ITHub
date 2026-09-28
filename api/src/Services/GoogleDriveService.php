@@ -210,7 +210,8 @@ final class GoogleDriveService
      */
     private function ensureFolder(DriveService $drive, string $name, string $parentId): string
     {
-        $nameEsc = str_replace("'", "\\'", $name);
+        // Escapar primero la barra invertida y después la comilla (orden importa)
+        $nameEsc = str_replace(['\\', "'"], ['\\\\', "\\'"], $name);
         $q = sprintf(
             "name = '%s' and mimeType = 'application/vnd.google-apps.folder' and '%s' in parents and trashed = false",
             $nameEsc,

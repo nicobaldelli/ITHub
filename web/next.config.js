@@ -15,10 +15,6 @@ const nextConfig = {
     // Static export no soporta el Image optimization de Next por default
     unoptimized: true,
   },
-  // En dev permitimos llamadas desde el container al host
-  experimental: {
-    instrumentationHook: false,
-  },
 };
 
 module.exports = nextConfig;

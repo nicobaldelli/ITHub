@@ -14,6 +14,9 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
+use Slim\Exception\HttpException;
+use Slim\Exception\HttpMethodNotAllowedException;
+use Slim\Exception\HttpNotFoundException;
 use Throwable;
 
 /**
@@ -70,6 +73,26 @@ final class ErrorHandlerMiddleware implements MiddlewareInterface
 
             if ($e instanceof RateLimitException) {
                 $response = $response->withHeader('Retry-After', (string) $e->retryAfter);
+            }
+
+            return $response;
+        }
+
+        // Excepciones HTTP de Slim (404 de ruta, 405 de método): status real,
+        // sin loguearlas como error 500
+        if ($e instanceof HttpException) {
+            $status = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 500;
+            [$code, $message] = match (true) {
+                $e instanceof HttpNotFoundException => ['NOT_FOUND', 'Ruta no encontrada'],
+                $e instanceof HttpMethodNotAllowedException => ['METHOD_NOT_ALLOWED', 'Método no permitido para esta ruta'],
+                default => ['HTTP_ERROR', $e->getTitle() !== '' ? $e->getTitle() : 'Error HTTP'],
+            };
+
+            $response = $this->responseFactory->createResponse();
+            $response = ResponseFactory::error($response, $status, $code, $message, [], $requestId);
+
+            if ($e instanceof HttpMethodNotAllowedException) {
+                $response = $response->withHeader('Allow', implode(', ', $e->getAllowedMethods()));
             }
 
             return $response;

@@ -182,7 +182,7 @@ final class ServiciosController
     {
         /** @var User $user */
         $user = $request->getAttribute('user');
-        $a = $this->ajusteService->aplicar((int) $args['aid'], $user, $request);
+        $a = $this->ajusteService->aplicar((int) $args['id'], (int) $args['aid'], $user, $request);
         return ResponseFactory::json($response, $a);
     }
 
@@ -190,7 +190,7 @@ final class ServiciosController
     {
         /** @var User $user */
         $user = $request->getAttribute('user');
-        $this->ajusteService->eliminar((int) $args['aid'], $user, $request);
+        $this->ajusteService->eliminar((int) $args['id'], (int) $args['aid'], $user, $request);
         return ResponseFactory::noContent($response);
     }
 }

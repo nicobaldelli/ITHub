@@ -123,7 +123,7 @@ export default function FacturasPage() {
             {['A', 'B', 'E', 'CREDITO_MIPYME_A', 'CREDITO_MIPYME_B', 'NC_A', 'NC_B', 'NC_E', 'ND_A', 'ND_B', 'ND_E'].map(
               (t) => (
                 <option key={t} value={t}>
-                  {t.replace('_', ' ')}
+                  {t.replace(/_/g, ' ')}
                 </option>
               ),
             )}

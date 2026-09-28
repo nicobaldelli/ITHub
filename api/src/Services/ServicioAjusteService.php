@@ -147,18 +147,15 @@ final class ServicioAjusteService
         // Si es espontáneo y la fecha_aplicacion ya pasó → aplicar inmediatamente
         if ($clean['tipo'] === ServicioAjuste::TIPO_ESPONTANEO
             && strtotime($clean['fecha_aplicacion']) <= time()) {
-            $ajuste = $this->aplicar($ajuste->id, $user, $request);
+            $ajuste = $this->aplicar($servicioId, $ajuste->id, $user, $request);
         }
 
         return $ajuste->fresh();
     }
 
-    public function aplicar(int $ajusteId, User $user, ServerRequestInterface $request): ServicioAjuste
+    public function aplicar(int $servicioId, int $ajusteId, User $user, ServerRequestInterface $request): ServicioAjuste
     {
-        $ajuste = ServicioAjuste::find($ajusteId);
-        if ($ajuste === null) {
-            throw new NotFoundException('Ajuste no encontrado');
-        }
+        $ajuste = $this->resolveAjuste($servicioId, $ajusteId);
         if ($ajuste->aplicado) {
             throw new ValidationException(
                 'El ajuste ya fue aplicado',
@@ -232,6 +229,21 @@ final class ServicioAjusteService
     }
 
     /**
+     * El ajuste tiene que pertenecer al servicio de la ruta (mismo criterio que
+     * las cuotas): evita operar un ajuste ajeno cambiando el id en la URL.
+     */
+    private function resolveAjuste(int $servicioId, int $ajusteId): ServicioAjuste
+    {
+        $ajuste = ServicioAjuste::where('id', $ajusteId)
+            ->where('servicio_id', $servicioId)
+            ->first();
+        if ($ajuste === null) {
+            throw new NotFoundException('Ajuste no encontrado para el servicio indicado');
+        }
+        return $ajuste;
+    }
+
+    /**
      * Devuelve los ajustes de un servicio (ordenados por fecha de aplicación desc).
      */
     public function listar(int $servicioId): array
@@ -243,12 +255,9 @@ final class ServicioAjusteService
             ->toArray();
     }
 
-    public function eliminar(int $ajusteId, User $user, ServerRequestInterface $request): void
+    public function eliminar(int $servicioId, int $ajusteId, User $user, ServerRequestInterface $request): void
     {
-        $ajuste = ServicioAjuste::find($ajusteId);
-        if ($ajuste === null) {
-            throw new NotFoundException('Ajuste no encontrado');
-        }
+        $ajuste = $this->resolveAjuste($servicioId, $ajusteId);
         if ($ajuste->aplicado) {
             throw new ValidationException(
                 'No se puede eliminar un ajuste ya aplicado (afectaría auditoría)',

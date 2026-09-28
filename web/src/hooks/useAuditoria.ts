@@ -22,19 +22,21 @@ export function useAuditoria(filters: AuditoriaFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Query string como dependencia estable (ver useFacturas)
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v === undefined || v === '' || v === null) return;
+    params.set(k, String(v));
+  });
+  const query = params.toString();
+
   useEffect(() => {
     let canceled = false;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v === undefined || v === '' || v === null) return;
-      params.set(k, String(v));
-    });
-
     api
-      .get<ApiSuccess<AuditoriaEntry[]>>(`/auditoria?${params.toString()}`)
+      .get<ApiSuccess<AuditoriaEntry[]>>(`/auditoria?${query}`)
       .then((res) => {
         if (canceled) return;
         setData(res.data.data);
@@ -46,7 +48,7 @@ export function useAuditoria(filters: AuditoriaFilters) {
     return () => {
       canceled = true;
     };
-  }, [JSON.stringify(filters)]);
+  }, [query]);
 
   return { data, meta, loading, error };
 }

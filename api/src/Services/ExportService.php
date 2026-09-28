@@ -6,6 +6,7 @@ namespace ITHub\Api\Services;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use ITHub\Api\Exceptions\ValidationException;
 use ITHub\Api\Models\FacturaVenta;
 use ITHub\Api\Repositories\FacturaRepository;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -32,10 +33,26 @@ final class ExportService
      * @param array<string,mixed> $filters
      * @return array{filename:string, mime:string, content:string}
      */
+    /**
+     * Tope de filas por export. PhpSpreadsheet y Dompdf arman todo en memoria;
+     * en hosting compartido (memory_limit 256M) más que esto se corta.
+     */
+    private const MAX_FILAS = 5_000;
+
     public function exportFacturas(array $filters, string $formato): array
     {
-        // Sacamos límite de paginación: queremos TODO lo que matchea los filtros.
-        $paginator = $this->facturaRepo->paginate($filters, 1, 10_000);
+        // Sin paginación: queremos TODO lo que matchea los filtros, hasta el tope.
+        $paginator = $this->facturaRepo->paginate($filters, 1, self::MAX_FILAS);
+        if ($paginator->total() > self::MAX_FILAS) {
+            throw new ValidationException(
+                sprintf(
+                    'El filtro abarca %d facturas y el export admite hasta %d. Acotá por fecha, cliente o estado.',
+                    $paginator->total(),
+                    self::MAX_FILAS
+                ),
+                ['filtros' => 'demasiadas filas']
+            );
+        }
         $facturas = $paginator->items();
 
         $timestamp = date('Y-m-d_His');

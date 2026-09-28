@@ -201,7 +201,7 @@ function CrearAjusteModal({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Nuevo ajuste de tarifa" size="lg">
+    <Dialog open={open} onClose={() => !loading && onClose()} title="Nuevo ajuste de tarifa" size="lg">
       <div className="mb-4 rounded-lg bg-neutral-50 p-3 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-neutral-500">Importe actual</span>
