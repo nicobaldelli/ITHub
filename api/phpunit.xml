@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true">
+    <testsuites>
+        <!-- Sin base de datos: validadores, helpers, servicios puros -->
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <!-- Con SQLite en memoria y el container real (ver tests/Support/DatabaseTestCase.php) -->
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
+
+    <php>
+        <!-- Variables obligatorias de config/settings.php. Ninguna es real:
+             la base es SQLite en memoria y el resto son valores de prueba. -->
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="false"/>
+        <env name="APP_NAME" value="ITHub API (tests)"/>
+        <env name="APP_URL" value="http://api.test"/>
+        <env name="FRONTEND_URL" value="http://web.test"/>
+        <env name="TIMEZONE" value="America/Argentina/Buenos_Aires"/>
+        <env name="DB_DRIVER" value="sqlite"/>
+        <env name="DB_HOST" value="memory"/>
+        <env name="DB_NAME" value=":memory:"/>
+        <env name="DB_USER" value="test"/>
+        <env name="DB_PASS" value="test"/>
+        <env name="JWT_SECRET" value="secreto-de-prueba-no-usar-en-produccion-0123456789"/>
+        <env name="JWT_ISSUER" value="http://api.test"/>
+        <env name="JWT_AUDIENCE" value="http://web.test"/>
+        <env name="JWT_ACCESS_TTL" value="900"/>
+        <env name="JWT_REFRESH_TTL" value="604800"/>
+        <env name="COOKIE_DOMAIN" value="localhost"/>
+        <env name="COOKIE_SECURE" value="false"/>
+        <env name="CRON_TOKEN" value="cron-token-de-prueba"/>
+        <env name="ENABLE_HSTS" value="false"/>
+        <env name="LOG_LEVEL" value="error"/>
+    </php>
+</phpunit>

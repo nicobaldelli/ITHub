@@ -13,6 +13,7 @@ use ITHub\Api\Models\FacturaVenta;
 use ITHub\Api\Models\User;
 use ITHub\Api\Services\AuditoriaService;
 use ITHub\Api\Services\GoogleDriveService;
+use ITHub\Api\Support\MimeNormalizer;
 use ITHub\Api\Support\ResponseFactory;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -90,7 +91,7 @@ final class ArchivosController
         $reportedMime = (string) ($upload->getClientMediaType() ?: '');
         $nombreArchivo = $upload->getClientFilename() ?? 'archivo';
 
-        $mimeFinal = $this->normalizarMime($detectedMime, $reportedMime, $nombreArchivo, $contenido);
+        $mimeFinal = MimeNormalizer::resolve($detectedMime, $reportedMime, $nombreArchivo, $contenido);
 
         $clienteNombre = $factura->cliente?->razon_social ?? 'cliente';
         $fechaFactura = $factura->fecha_factura ?? new \DateTimeImmutable();
@@ -163,42 +164,6 @@ final class ArchivosController
         );
 
         return ResponseFactory::noContent($response);
-    }
-
-    /**
-     * Resuelve el MIME a validar contra la whitelist. Se prioriza lo que detecta
-     * finfo (magic bytes), pero hay dos casos en los que finfo no alcanza y se
-     * confirma con una segunda verificación sobre el contenido:
-     *  - xlsx/docx: finfo devuelve application/zip. Son válidos solo si el zip
-     *    contiene el manifiesto OOXML "[Content_Types].xml".
-     *  - csv: finfo devuelve text/plain. Se acepta como text/csv solo si el
-     *    cliente lo declaró csv o la extensión es .csv.
-     */
-    private function normalizarMime(string $detected, string $reported, string $nombre, string $contenido): string
-    {
-        $ext = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
-        $officeMimes = [
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ];
-
-        if (
-            in_array($detected, ['application/zip', 'application/octet-stream'], true)
-            && isset($officeMimes[$ext])
-            && str_starts_with($contenido, "PK\x03\x04")
-            && str_contains($contenido, '[Content_Types].xml')
-        ) {
-            return $officeMimes[$ext];
-        }
-
-        if (
-            $detected === 'text/plain'
-            && ($ext === 'csv' || in_array($reported, ['text/csv', 'application/csv'], true))
-        ) {
-            return 'text/csv';
-        }
-
-        return $detected !== '' ? $detected : $reported;
     }
 
     private function resolveFactura(int $id): FacturaVenta

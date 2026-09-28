@@ -57,6 +57,32 @@ docker compose exec api vendor/bin/phinx seed:run -c db/phinx.php
 docker compose exec web pnpm dev
 ```
 
+## 🧪 Tests
+
+Backend (PHPUnit 10, sin MySQL: la suite de integración usa SQLite en memoria
+con el container real):
+
+```bash
+cd api
+composer install            # incluye phpunit
+composer test               # toda la suite
+vendor/bin/phpunit --testsuite Unit          # solo validadores, helpers, servicios puros
+vendor/bin/phpunit --testsuite Integration   # auth, facturación automática, etc.
+```
+
+Las variables de entorno de test están en `api/phpunit.xml`; no hace falta
+`.env`. Si agregás una migración con una tabla nueva, reflejala en
+`api/tests/Support/TestSchema.php` (hay un test que lo recuerda).
+
+Frontend:
+
+```bash
+cd web
+pnpm lint && pnpm typecheck
+```
+
+Ambos corren en GitHub Actions en cada push (`.github/workflows/ci.yml`).
+
 Accesos por defecto:
 
 - API: <http://localhost:8080>

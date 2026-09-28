@@ -54,6 +54,7 @@ api/storage/credentials/*
 !api/storage/credentials/.gitkeep
 api/coverage/
 api/.phpunit.result.cache
+api/.phpunit.cache/
 api/.php-cs-fixer.cache
 
 # ============================================================
