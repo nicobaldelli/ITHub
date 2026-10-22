@@ -130,7 +130,6 @@ return [
 
     'google_drive' => [
         'service_account_path' => env_get('GOOGLE_SERVICE_ACCOUNT_JSON_PATH', 'storage/credentials/service-account.json'),
-        'root_folder_id' => env_get('GOOGLE_DRIVE_ROOT_FOLDER_ID', ''),
         'impersonate_user' => env_get('GOOGLE_IMPERSONATE_USER', ''),
         'allowed_mimes' => [
             'application/pdf',

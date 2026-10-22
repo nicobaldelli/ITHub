@@ -17,16 +17,34 @@ use Psr\Log\LoggerInterface;
  *
  * Configuración requerida:
  *  - Service account JSON en GOOGLE_SERVICE_ACCOUNT_JSON_PATH (env)
- *  - GOOGLE_IMPERSONATE_USER si se quiere impersonar a un usuario del workspace
- *  - drive_root_folder_id en config_app (carpeta raíz donde se crea año/mes/cliente)
+ *  - drive_root_folder_id en config_app: carpeta raíz, que tiene que estar
+ *    dentro de una UNIDAD COMPARTIDA (Shared Drive) de Google Workspace con la
+ *    service account como miembro. Google ya no deja que una service account
+ *    sea dueña de archivos en "Mi unidad" ("Service Accounts do not have
+ *    storage quota"), así que una carpeta común compartida con ella falla al
+ *    primer upload.
+ *  - GOOGLE_IMPERSONATE_USER (opcional): alternativa a la unidad compartida
+ *    vía delegación a nivel de dominio; los archivos quedan en el Drive de
+ *    ese usuario.
+ *
+ * Todas las llamadas llevan supportsAllDrives/includeItemsFromAllDrives: sin
+ * eso la API no ve nada dentro de una unidad compartida ("File not found").
  *
  * Estructura creada en Drive:
- *   <root>/<año>/<mm-mes>/<cliente_razon_social>/<archivo>
+ *   <root>/<cliente_razon_social>/<año>/<mm-mes>/<archivo>
  *
  * Scope mínimo: drive.file (solo archivos creados por la app, no acceso global).
  */
 final class GoogleDriveService
 {
+    /** Parámetros que habilitan unidades compartidas en cada llamada. */
+    private const ALL_DRIVES = ['supportsAllDrives' => true];
+    private const ALL_DRIVES_LIST = [
+        'supportsAllDrives' => true,
+        'includeItemsFromAllDrives' => true,
+        'corpora' => 'allDrives',
+    ];
+
     private readonly string $serviceAccountPath;
     private readonly string $impersonateUser;
     /** @var string[] */
@@ -110,7 +128,7 @@ final class GoogleDriveService
 
         $created = $drive->files->create(
             $file,
-            [
+            self::ALL_DRIVES + [
                 'data' => $content,
                 'mimeType' => $mimeType,
                 'uploadType' => 'multipart',
@@ -137,7 +155,7 @@ final class GoogleDriveService
     {
         $this->ensureAvailable();
         $drive = $this->getDriveService();
-        $drive->files->delete($fileId);
+        $drive->files->delete($fileId, self::ALL_DRIVES);
         $this->logger->info('drive.deleted', ['file_id' => $fileId]);
     }
 
@@ -149,7 +167,7 @@ final class GoogleDriveService
         $this->ensureAvailable();
         $drive = $this->getDriveService();
         try {
-            $file = $drive->files->get($fileId, ['fields' => 'id, webContentLink, webViewLink']);
+            $file = $drive->files->get($fileId, self::ALL_DRIVES + ['fields' => 'id, webContentLink, webViewLink']);
             return $file->webContentLink ?? $file->webViewLink ?? null;
         } catch (\Throwable $e) {
             $this->logger->warning('drive.get_download_url.failed', [
@@ -186,6 +204,16 @@ final class GoogleDriveService
         return $row?->valor !== null ? (string) ($row->valor ?? '') : '';
     }
 
+    /**
+     * Inyecta un cliente de Drive ya construido. Para tests (cliente HTTP
+     * mockeado) o entornos que armen el GoogleClient de otra forma; en
+     * producción no hace falta: getDriveService() lo crea con la service account.
+     */
+    public function useDriveService(DriveService $drive): void
+    {
+        $this->driveCache = $drive;
+    }
+
     private function getDriveService(): DriveService
     {
         if ($this->driveCache !== null) {
@@ -217,7 +245,7 @@ final class GoogleDriveService
             $nameEsc,
             $parentId
         );
-        $list = $drive->files->listFiles([
+        $list = $drive->files->listFiles(self::ALL_DRIVES_LIST + [
             'q' => $q,
             'fields' => 'files(id, name)',
             'pageSize' => 1,
@@ -232,7 +260,7 @@ final class GoogleDriveService
         $folder->setMimeType('application/vnd.google-apps.folder');
         $folder->setParents([$parentId]);
 
-        $created = $drive->files->create($folder, ['fields' => 'id']);
+        $created = $drive->files->create($folder, self::ALL_DRIVES + ['fields' => 'id']);
         return $created->id;
     }
 

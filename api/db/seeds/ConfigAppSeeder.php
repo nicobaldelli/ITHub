@@ -11,7 +11,7 @@ final class ConfigAppSeeder extends AbstractSeed
         $now = date('Y-m-d H:i:s');
         $defaults = [
             ['clave' => 'drive_root_folder_id', 'valor' => '', 'tipo' => 'string',
-                'descripcion' => 'ID de la carpeta raíz de Google Drive donde se crea la jerarquía año/mes/cliente'],
+                'descripcion' => 'ID de la carpeta raíz en una Unidad compartida de Drive; ahí se crea cliente/año/mes'],
             ['clave' => 'smtp_host', 'valor' => '', 'tipo' => 'string', 'descripcion' => 'Servidor SMTP'],
             ['clave' => 'smtp_port', 'valor' => '587', 'tipo' => 'int', 'descripcion' => 'Puerto SMTP'],
             ['clave' => 'smtp_user', 'valor' => '', 'tipo' => 'string', 'descripcion' => 'Usuario SMTP'],

@@ -275,7 +275,16 @@ corrida, la segunda se salta sola.
 
 ## C2. Google Drive (para adjuntos y "marcar enviada")
 
-Seguir `docs/google-drive-setup.md`. En resumen:
+Seguir `docs/google-drive-setup.md`. Dos cosas que no son obvias:
+
+- La carpeta raíz **tiene que estar en una Unidad compartida** de Workspace
+  con la service account como miembro "Administrador de contenido". Una
+  carpeta común de "Mi unidad" compartida con la service account falla con
+  `Service Accounts do not have storage quota`.
+- Las personas que tienen que abrir los links "Ver en Drive" también tienen
+  que ser miembros de esa unidad.
+
+En resumen:
 
 ```bash
 # Desde tu PC:
