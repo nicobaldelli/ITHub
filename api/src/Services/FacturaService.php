@@ -47,22 +47,7 @@ final class FacturaService
      */
     public function create(array $data, User $user, ServerRequestInterface $request): FacturaVenta
     {
-        $clean = FacturaValidator::validate($data, isUpdate: false);
-
-        // Cliente debe existir
-        $cliente = $this->clienteRepo->findById((int) $clean['cliente_id']);
-        if ($cliente === null) {
-            throw new ValidationException('Cliente no encontrado', ['cliente_id' => 'no existe']);
-        }
-        if (!$cliente->activo) {
-            throw new ValidationException('Cliente inactivo', ['cliente_id' => 'inactivo']);
-        }
-
-        // Único por numero_factura
-        if ($this->facturaRepo->existsByNumero($clean['numero_factura'])) {
-            throw new ValidationException('Ya existe una factura con ese número',
-                ['numero_factura' => 'duplicado']);
-        }
+        $clean = $this->validarAlta($data);
 
         // Regla de negocio: toda factura debe asociarse a una cuota de servicio.
         // El bot facturarCuota del backend la setea automaticamente; el alta
@@ -85,10 +70,82 @@ final class FacturaService
             );
         }
 
+        return $this->persistirAlta($clean, $user, $request, []);
+    }
+
+    /**
+     * Alta de una factura HISTÓRICA (import masivo): misma validación,
+     * unicidad y auditoría que `create`, pero sin cuota de servicio (son
+     * facturas anteriores al sistema) y con la cobranza ya resuelta si el
+     * archivo dice que está cobrada.
+     *
+     * @param array<string,mixed> $data
+     */
+    public function createHistorica(array $data, bool $cobrada, User $user, ServerRequestInterface $request): FacturaVenta
+    {
+        $clean = $this->validarAlta($data);
+        $clean['servicio_cuota_id'] = null;
+
+        if ($cobrada) {
+            $clean['check_cobranza'] = true;
+            $clean['check_cobranza_user_id'] = $user->id;
+            $clean['check_cobranza_fecha'] = date('Y-m-d H:i:s');
+            $clean['estado'] = FacturaVenta::ESTADO_COBRADA;
+            if (empty($clean['fecha_pago'])) {
+                $clean['fecha_pago'] = $clean['fecha_factura'];
+            }
+        }
+
+        return $this->persistirAlta($clean, $user, $request, ['origen' => 'import_historico']);
+    }
+
+    /**
+     * Validación común a toda alta: formato, cliente existente y activo,
+     * número único.
+     *
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    private function validarAlta(array $data): array
+    {
+        $clean = FacturaValidator::validate($data, isUpdate: false);
+
+        // Cliente debe existir
+        $cliente = $this->clienteRepo->findById((int) $clean['cliente_id']);
+        if ($cliente === null) {
+            throw new ValidationException('Cliente no encontrado', ['cliente_id' => 'no existe']);
+        }
+        if (!$cliente->activo) {
+            throw new ValidationException('Cliente inactivo', ['cliente_id' => 'inactivo']);
+        }
+
+        // Único por numero_factura
+        if ($this->facturaRepo->existsByNumero($clean['numero_factura'])) {
+            throw new ValidationException('Ya existe una factura con ese número',
+                ['numero_factura' => 'duplicado']);
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @param array<string,mixed> $clean
+     * @param array<string,mixed> $auditExtra
+     */
+    private function persistirAlta(array $clean, User $user, ServerRequestInterface $request, array $auditExtra): FacturaVenta
+    {
         // Autocálculo importe_total_pesos si no vino y es ARS o si hay TDC en USD
         if (!isset($clean['importe_total_pesos']) || $clean['importe_total_pesos'] === null) {
             $clean['importe_total_pesos'] = $this->calcularImporteTotalPesos($clean);
         }
+        // Cobrada sin total_cobrado explícito: se asume el total
+        if (!empty($clean['check_cobranza']) && empty($clean['total_cobrado'])) {
+            $clean['total_cobrado'] = $clean['importe_total_pesos'];
+        }
+        // Columnas NOT NULL con default 0: el validador deja '' como null y un
+        // NULL explícito en el INSERT falla (SQLite y MySQL estricto)
+        $clean['retenciones'] ??= 0;
+        $clean['total_cobrado'] ??= 0;
 
         $clean['created_by'] = $user->id;
         $clean['updated_by'] = $user->id;
@@ -96,11 +153,11 @@ final class FacturaService
 
         $factura = FacturaVenta::create($clean);
 
-        $this->audit->log($user->id, 'factura', $factura->id, Auditoria::ACCION_CREAR, [
+        $this->audit->log($user->id, 'factura', $factura->id, Auditoria::ACCION_CREAR, array_merge([
             'numero_factura' => $factura->numero_factura,
             'cliente_id' => $factura->cliente_id,
             'importe_total_pesos' => $factura->importe_total_pesos,
-        ], $request);
+        ], $auditExtra), $request);
 
         return $factura->fresh(['cliente']);
     }

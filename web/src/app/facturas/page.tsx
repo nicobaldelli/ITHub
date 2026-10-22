@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Plus, Download } from 'lucide-react';
+import { Search, Filter, Plus, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
@@ -89,6 +89,14 @@ export default function FacturasPage() {
           <Download className="h-3.5 w-3.5" />
           PDF
         </Button>
+        {puedeCrear && (
+          <Link href="/facturas/importar">
+            <Button variant="secondary">
+              <Upload className="h-4 w-4" />
+              Importar
+            </Button>
+          </Link>
+        )}
         {puedeCrear && (
           <Link href="/facturas/nueva">
             <Button>

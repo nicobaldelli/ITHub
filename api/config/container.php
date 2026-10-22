@@ -16,6 +16,7 @@ use ITHub\Api\Services\AuthService;
 use ITHub\Api\Services\BackupService;
 use ITHub\Api\Services\ClienteService;
 use ITHub\Api\Services\DashboardService;
+use ITHub\Api\Services\FacturaImportService;
 use ITHub\Api\Services\FacturaService;
 use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
@@ -147,6 +148,11 @@ return [
         $c->get(ClienteRepository::class),
         $c->get(AuditoriaService::class),
         $c->get(GoogleDriveService::class),
+    ),
+    FacturaImportService::class => fn (ContainerInterface $c) => new FacturaImportService(
+        $c->get(FacturaService::class),
+        $c->get(AuditoriaService::class),
+        $c->get('basePath') . '/' . $c->get('settings')['storage']['imports'],
     ),
 
     // ============================================================

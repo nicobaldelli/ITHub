@@ -14,6 +14,7 @@ use ITHub\Api\Controllers\ConfigController;
 use ITHub\Api\Controllers\CronController;
 use ITHub\Api\Controllers\DashboardController;
 use ITHub\Api\Controllers\ExportController;
+use ITHub\Api\Controllers\FacturaImportController;
 use ITHub\Api\Controllers\FacturasController;
 use ITHub\Api\Controllers\HealthController;
 use ITHub\Api\Controllers\ServiciosController;
@@ -102,6 +103,16 @@ final class Routes
 
             // ----- Export de facturas -----
             $g->get('/facturas/export', [ExportController::class, 'facturas']);
+
+            // ----- Import de facturas históricas (admin + ventas, mismos roles que el alta) -----
+            $g->get('/facturas/import/plantilla', [FacturaImportController::class, 'plantilla'])
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->post('/facturas/import/preview', [FacturaImportController::class, 'preview'])
+                ->add(new RateLimitMiddleware('import'))
+                ->add(new RoleMiddleware(['admin', 'ventas']));
+            $g->post('/facturas/import/confirm', [FacturaImportController::class, 'confirm'])
+                ->add(new RateLimitMiddleware('import'))
+                ->add(new RoleMiddleware(['admin', 'ventas']));
 
             // ----- Adjuntos de facturas (Google Drive) -----
             $g->get('/facturas/{id:[0-9]+}/archivos', [ArchivosController::class, 'index']);

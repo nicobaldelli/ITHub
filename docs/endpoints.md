@@ -161,10 +161,13 @@ Endpoints del spec original que **todavía no existen** en el router:
 - `GET /servicios/{id}/cronograma/export?formato=xlsx|pdf`
 - `GET /dashboard/export?formato=xlsx|pdf` — reporte ejecutivo
 
-### Importación histórica
-- `POST /facturas/import` — multipart Excel/CSV → preview + validación
-- `POST /facturas/import/confirm` — confirma el batch validado
-- `GET /imports/{id}` — estado e informe de errores
+### Importación histórica (admin + ventas)
+- `GET /facturas/import/plantilla` — xlsx con cabeceras, 2 filas de ejemplo y hoja de instrucciones
+- `POST /facturas/import/preview` — multipart `archivo` (xlsx/csv, 5 MB, 2000 filas) → `{token, resumen, columnas_ignoradas, filas[{n, datos, cliente, cobrada, estado_previsto, errores}]}`.
+  Nada se guarda. Cliente por CUIT; número único en la base y en el archivo; mismo validador que el alta manual.
+- `POST /facturas/import/confirm` — `{token, omitir_con_error}` → crea las facturas en una transacción (todo o nada;
+  con `omitir_con_error` solo las válidas). Token de 1 h, del usuario que hizo la preview. Las históricas no se
+  asocian a cuotas; `cobrada`/`fecha_pago` → cobrada con check; vencimiento pasado → vencida; sino emitida.
 
 ### Config y administración
 - `GET /config` — todas las claves (admin)
