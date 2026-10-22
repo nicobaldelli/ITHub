@@ -652,6 +652,31 @@ final class ServicioValidatorTest extends TestCase
         self::assertSame(['intervalo_dias' => null, 'frecuencia_ajuste_meses' => null], $clean);
     }
 
+    public function testUpdateFechaFinDebeSerPosteriorAFechaInicioCuandoVienenLasDos(): void
+    {
+        $details = self::detallesUpdate(['fecha_inicio' => '2026-06-01', 'fecha_fin' => '2026-06-01']);
+        self::assertSame('Debe ser posterior a fecha_inicio', $details['fecha_fin']);
+
+        $details = self::detallesUpdate(['fecha_inicio' => '2026-06-01', 'fecha_fin' => '2026-05-31']);
+        self::assertSame('Debe ser posterior a fecha_inicio', $details['fecha_fin']);
+
+        $clean = ServicioValidator::validateUpdate(['fecha_inicio' => '2026-06-01', 'fecha_fin' => '2026-06-02']);
+        self::assertSame(['fecha_inicio' => '2026-06-01', 'fecha_fin' => '2026-06-02'], $clean);
+
+        // Con una sola fecha no hay contra qué comparar acá (lo hace el service contra la persistida)
+        self::assertSame(['fecha_fin' => '2020-01-01'], ServicioValidator::validateUpdate(['fecha_fin' => '2020-01-01']));
+    }
+
+    public function testUpdateAvisoDiasPreviosNoPuedeSerNegativoNiTexto(): void
+    {
+        self::assertSame('Debe ser >= 0', self::detallesUpdate(['aviso_dias_previos' => -1])['aviso_dias_previos']);
+        self::assertArrayHasKey('aviso_dias_previos', self::detallesUpdate(['aviso_dias_previos' => 'tres']));
+
+        self::assertSame(['aviso_dias_previos' => 0], ServicioValidator::validateUpdate(['aviso_dias_previos' => 0]));
+        self::assertSame(['aviso_dias_previos' => 7], ServicioValidator::validateUpdate(['aviso_dias_previos' => '7']));
+        self::assertSame(['aviso_dias_previos' => null], ServicioValidator::validateUpdate(['aviso_dias_previos' => '']));
+    }
+
     public function testUpdateNoPasaCamposFueraDeLaWhitelist(): void
     {
         $clean = ServicioValidator::validateUpdate([

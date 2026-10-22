@@ -68,14 +68,25 @@ final class CronogramaGenerator
         $total = count($cuotas);
         $importeBase = (float) $servicio->importe_base;
         $resultado = [];
+        $acumulado = 0.0;
 
         foreach ($cuotas as $i => $c) {
             $porc = (float) $c['porcentaje'];
+            $esUltima = ($i === $total - 1);
+
+            // Cada cuota se redondea a 2 decimales; la última absorbe la diferencia
+            // para que la suma de las cuotas sea EXACTAMENTE el importe del proyecto
+            // (33.33 + 33.33 + 33.34 de 100.01 daría 100.00 sin esto).
+            $importe = $esUltima
+                ? round($importeBase - $acumulado, 2)
+                : round($importeBase * $porc / 100, 2);
+            $acumulado += $importe;
+
             $resultado[] = [
                 'numero_cuota' => $i + 1,
                 'total_cuotas' => $total,
                 'porcentaje' => $porc,
-                'importe' => round($importeBase * $porc / 100, 2),
+                'importe' => $importe,
                 'fecha_prevista' => (string) $c['fecha_prevista'],
                 'etiqueta' => isset($c['etiqueta']) && trim((string) $c['etiqueta']) !== ''
                     ? trim((string) $c['etiqueta'])

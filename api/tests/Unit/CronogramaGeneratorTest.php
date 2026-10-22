@@ -170,6 +170,43 @@ final class CronogramaGeneratorTest extends TestCase
         self::assertEqualsWithDelta(1000.0, array_sum(array_column($cuotas, 'importe')), 0.001);
     }
 
+    /** @return array<string, array{string, float[], float[]}> */
+    public static function casosDeCompensacion(): array
+    {
+        return [
+            // 33.33% de 100.01 = 33.3333 -> 33.33 ; 33.34% = 33.3433 -> 33.34 ; suma 99.99
+            'tres tercios de 100.01' => ['100.01', [33.33, 33.33, 33.34], [33.33, 33.33, 33.35]],
+            // 33.33% de 10 = 3.333 -> 3.33 x2 ; 33.34% = 3.334 -> 3.33 ; suma 9.99
+            'tres tercios de 10' => ['10.00', [33.33, 33.33, 33.34], [3.33, 3.33, 3.34]],
+            // 3 x 33.333333 % de 1000 = 333.33 cada una ; suma 999.99
+            'porcentajes periodicos' => ['1000.00', [33.333333, 33.333333, 33.333334], [333.33, 333.33, 333.34]],
+            // sin remanente: no cambia nada
+            'mitades exactas' => ['500.00', [50.0, 50.0], [250.0, 250.0]],
+            'una sola cuota' => ['999.99', [100.0], [999.99]],
+        ];
+    }
+
+    #[DataProvider('casosDeCompensacion')]
+    public function testProyectoLaUltimaCuotaAbsorbeElRemanenteDelRedondeo(string $importe, array $pcts, array $esperado): void
+    {
+        $s = self::servicio(['tipo' => Servicio::TIPO_PROYECTO, 'importe_base' => $importe]);
+        $defs = [];
+        foreach ($pcts as $i => $p) {
+            $defs[] = ['porcentaje' => $p, 'fecha_prevista' => sprintf('2026-%02d-01', $i + 1)];
+        }
+
+        $cuotas = CronogramaGenerator::generar($s, $defs);
+
+        self::assertSame($esperado, array_column($cuotas, 'importe'));
+        // La suma de las cuotas es EXACTAMENTE el importe del proyecto, al centavo
+        self::assertSame(
+            round((float) $importe, 2),
+            round(array_sum(array_column($cuotas, 'importe')), 2),
+        );
+        // Los porcentajes se guardan como los cargó el usuario, sin ajustar
+        self::assertSame($pcts, array_map('floatval', array_column($cuotas, 'porcentaje')));
+    }
+
     public function testProyectoRedondeaHalfUpADosDecimales(): void
     {
         // 1234.567 * 12.5% = 154.320875 -> 154.32 ; 87.5% = 1080.246125 -> 1080.25

@@ -164,6 +164,22 @@ final class ServicioValidator
             }
         }
 
+        // Si vienen las dos fechas, fecha_fin tiene que ser posterior (igual que en create).
+        // Si viene una sola, la comparación contra la persistida la hace el service.
+        if (
+            !empty($data['fecha_inicio']) && !empty($data['fecha_fin'])
+            && self::isDate((string) $data['fecha_inicio']) && self::isDate((string) $data['fecha_fin'])
+            && strtotime((string) $data['fecha_fin']) <= strtotime((string) $data['fecha_inicio'])
+        ) {
+            $errors['fecha_fin'] = 'Debe ser posterior a fecha_inicio';
+        }
+
+        if (array_key_exists('aviso_dias_previos', $data) && $data['aviso_dias_previos'] !== null && $data['aviso_dias_previos'] !== '') {
+            if (!is_numeric($data['aviso_dias_previos']) || (int) $data['aviso_dias_previos'] < 0) {
+                $errors['aviso_dias_previos'] = 'Debe ser >= 0';
+            }
+        }
+
         if (array_key_exists('dia_facturacion', $data) && $data['dia_facturacion'] !== null && $data['dia_facturacion'] !== '') {
             $d = (int) $data['dia_facturacion'];
             if ($d < 1 || $d > 31) {

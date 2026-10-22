@@ -113,6 +113,7 @@ final class ServicioService
         }
 
         $clean = ServicioValidator::validateUpdate($data);
+        $this->validarFechasContraPersistido($servicio, $clean);
 
         // ¿Algún campo afecta el cronograma?
         $afectanCronograma = array_intersect_key($clean, array_flip(self::CAMPOS_QUE_AFECTAN_CRONOGRAMA));
@@ -175,6 +176,38 @@ final class ServicioService
 
             return $servicio->fresh(['cliente', 'cuotas']);
         });
+    }
+
+    /**
+     * El validador solo compara fecha_inicio/fecha_fin entre sí cuando vienen
+     * las dos en el mismo update. Acá se completa con lo persistido, así un
+     * update parcial no deja el servicio con fecha_fin <= fecha_inicio ni un
+     * proyecto sin fecha_fin.
+     *
+     * @param array<string,mixed> $clean
+     */
+    private function validarFechasContraPersistido(Servicio $servicio, array $clean): void
+    {
+        $inicio = array_key_exists('fecha_inicio', $clean)
+            ? $clean['fecha_inicio']
+            : $servicio->fecha_inicio?->format('Y-m-d');
+        $fin = array_key_exists('fecha_fin', $clean)
+            ? $clean['fecha_fin']
+            : $servicio->fecha_fin?->format('Y-m-d');
+
+        if ($servicio->esProyecto() && $fin === null) {
+            throw new ValidationException(
+                'Los proyectos siempre tienen fecha de fin',
+                ['fecha_fin' => 'Requerida para proyectos']
+            );
+        }
+
+        if ($inicio !== null && $fin !== null && strtotime((string) $fin) <= strtotime((string) $inicio)) {
+            throw new ValidationException(
+                'La fecha de fin debe ser posterior a la de inicio',
+                ['fecha_fin' => 'Debe ser posterior a fecha_inicio (' . $inicio . ')']
+            );
+        }
     }
 
     // ============================================================
