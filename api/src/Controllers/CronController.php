@@ -6,9 +6,11 @@ namespace ITHub\Api\Controllers;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\AuthException;
+use ITHub\Api\Exceptions\ConflictException;
 use ITHub\Api\Services\FacturacionAutomaticaService;
 use ITHub\Api\Services\NotificacionService;
 use ITHub\Api\Services\RollingWindowService;
+use ITHub\Api\Support\CronLock;
 use ITHub\Api\Support\ResponseFactory;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -49,11 +51,11 @@ final class CronController
     {
         $this->verifyCronTokenOrAdmin($request);
 
-        /** @var RollingWindowService $service */
-        $service = $this->container->get(RollingWindowService::class);
-        $resumen = $service->extend();
-
-        return ResponseFactory::json($response, $resumen);
+        return $this->conLock(function () use ($response): ResponseInterface {
+            /** @var RollingWindowService $service */
+            $service = $this->container->get(RollingWindowService::class);
+            return ResponseFactory::json($response, $service->extend());
+        });
     }
 
     /**
@@ -64,11 +66,11 @@ final class CronController
     {
         $this->verifyCronTokenOrAdmin($request);
 
-        /** @var FacturacionAutomaticaService $service */
-        $service = $this->container->get(FacturacionAutomaticaService::class);
-        $resumen = $service->procesar();
-
-        return ResponseFactory::json($response, $resumen);
+        return $this->conLock(function () use ($response): ResponseInterface {
+            /** @var FacturacionAutomaticaService $service */
+            $service = $this->container->get(FacturacionAutomaticaService::class);
+            return ResponseFactory::json($response, $service->procesar());
+        });
     }
 
     /**
@@ -79,43 +81,68 @@ final class CronController
     {
         $this->verifyCronTokenOrAdmin($request);
 
-        /** @var NotificacionService $notif */
-        $notif = $this->container->get(NotificacionService::class);
-        /** @var RollingWindowService $rolling */
-        $rolling = $this->container->get(RollingWindowService::class);
+        return $this->conLock(function () use ($response): ResponseInterface {
+            /** @var NotificacionService $notif */
+            $notif = $this->container->get(NotificacionService::class);
+            /** @var RollingWindowService $rolling */
+            $rolling = $this->container->get(RollingWindowService::class);
 
-        $hoy = date('Y-m-d');
-        $vencidas = Capsule::connection()
-            ->table('facturas_venta')
-            ->whereNull('deleted_at')
-            ->where('estado', 'emitida')
-            ->where('check_cobranza', false)
-            ->whereNotNull('vencimiento')
-            ->where('vencimiento', '<', $hoy)
-            ->update(['estado' => 'vencida']);
+            $hoy = date('Y-m-d');
+            $vencidas = Capsule::connection()
+                ->table('facturas_venta')
+                ->whereNull('deleted_at')
+                ->where('estado', 'emitida')
+                ->where('check_cobranza', false)
+                ->whereNotNull('vencimiento')
+                ->where('vencimiento', '<', $hoy)
+                ->update(['estado' => 'vencida']);
 
-        /** @var FacturacionAutomaticaService $facturacion */
-        $facturacion = $this->container->get(FacturacionAutomaticaService::class);
+            /** @var FacturacionAutomaticaService $facturacion */
+            $facturacion = $this->container->get(FacturacionAutomaticaService::class);
 
-        $resumen = [
-            'recalcular' => ['facturas_marcadas_vencidas' => $vencidas],
-            'rolling_window' => $rolling->extend(),
-            'facturacion_automatica' => $facturacion->procesar(),
-            'recordatorios' => $notif->dispatch(),
-        ];
+            $resumen = [
+                'recalcular' => ['facturas_marcadas_vencidas' => $vencidas],
+                'rolling_window' => $rolling->extend(),
+                'facturacion_automatica' => $facturacion->procesar(),
+                'recordatorios' => $notif->dispatch(),
+            ];
 
-        // Purga de refresh tokens expirados o revocados hace más de 30 días
-        // (mismo criterio que scripts/cron_diario.php)
-        $limite = date('Y-m-d H:i:s', strtotime('-30 days'));
-        $resumen['refresh_tokens_purgados'] = Capsule::connection()
-            ->table('refresh_tokens')
-            ->where(function ($q) use ($limite): void {
-                $q->where('expires_at', '<', $limite)
-                    ->orWhere('revoked_at', '<', $limite);
-            })
-            ->delete();
+            // Purga de refresh tokens expirados o revocados hace más de 30 días
+            // (mismo criterio que scripts/cron_diario.php)
+            $limite = date('Y-m-d H:i:s', strtotime('-30 days'));
+            $resumen['refresh_tokens_purgados'] = Capsule::connection()
+                ->table('refresh_tokens')
+                ->where(function ($q) use ($limite): void {
+                    $q->where('expires_at', '<', $limite)
+                        ->orWhere('revoked_at', '<', $limite);
+                })
+                ->delete();
 
-        return ResponseFactory::json($response, $resumen);
+            return ResponseFactory::json($response, $resumen);
+        });
+    }
+
+    /**
+     * Ejecuta una tarea bajo el mismo lock que usa scripts/cron_diario.php:
+     * si el cron programado (o otro admin) ya está corriendo, responde 409 en
+     * vez de duplicar cuotas o facturas.
+     *
+     * @param callable(): ResponseInterface $tarea
+     */
+    private function conLock(callable $tarea): ResponseInterface
+    {
+        $lock = CronLock::adquirir((string) $this->container->get('basePath'), CronLock::DIARIO);
+        if ($lock === null) {
+            throw new ConflictException(
+                'El cron diario ya está corriendo. Esperá a que termine y volvé a intentar.',
+                'CRON_EN_CURSO'
+            );
+        }
+        try {
+            return $tarea();
+        } finally {
+            CronLock::liberar($lock);
+        }
     }
 
     /**

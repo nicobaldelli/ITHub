@@ -140,7 +140,8 @@ final class TestSchema
             $t->string('moneda', 3)->default('ARS');
             $t->decimal('importe_sin_iva', 15, 2)->default(0);
             $t->decimal('importe_con_iva', 15, 2)->default(0);
-            $t->decimal('importe_total_pesos', 15, 2)->nullable()->default(0);
+            // nullable desde 20261104000001 (USD pendiente de TDC)
+            $t->decimal('importe_total_pesos', 15, 2)->nullable();
             $t->decimal('tdc', 10, 4)->nullable();
             $t->decimal('retenciones', 15, 2)->default(0);
             $t->decimal('total_cobrado', 15, 2)->default(0);

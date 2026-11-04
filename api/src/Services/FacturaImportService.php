@@ -100,9 +100,15 @@ final class FacturaImportService
     {
         [$cabeceras, $filasCrudas] = $this->leerArchivo($contenido, $nombreArchivo);
 
-        if (count($filasCrudas) > self::MAX_FILAS) {
+        // Se descartan las filas vacías ANTES de contar: Excel devuelve en
+        // toArray() todas las filas hasta la última con formato, aunque no
+        // tengan datos. Se conserva el índice original para informar la fila.
+        $filasConDatos = array_filter($filasCrudas, fn (array $celdas): bool => !$this->filaVacia($celdas));
+        unset($filasCrudas);
+
+        if (count($filasConDatos) > self::MAX_FILAS) {
             throw new ValidationException(
-                sprintf('El archivo tiene %d filas y el máximo por import es %d', count($filasCrudas), self::MAX_FILAS),
+                sprintf('El archivo tiene %d filas con datos y el máximo por import es %d', count($filasConDatos), self::MAX_FILAS),
                 ['archivo' => 'demasiadas filas']
             );
         }
@@ -117,15 +123,30 @@ final class FacturaImportService
             );
         }
 
+        // Números que ya existen en la base, en UNA consulta (no una por fila)
+        $idxNumero = array_search('numero_factura', $mapa, true);
+        $numerosArchivo = [];
+        foreach ($filasConDatos as $celdas) {
+            $num = trim((string) ($celdas[$idxNumero] ?? ''));
+            if ($num !== '') {
+                $numerosArchivo[$num] = true;
+            }
+        }
+        $existentes = $numerosArchivo === []
+            ? []
+            : array_flip(
+                FacturaVenta::withTrashed()
+                    ->whereIn('numero_factura', array_keys($numerosArchivo))
+                    ->pluck('numero_factura')
+                    ->all()
+            );
+
         $filas = [];
         $numerosEnArchivo = [];
         $cacheClientes = [];
 
-        foreach ($filasCrudas as $idx => $celdas) {
+        foreach ($filasConDatos as $idx => $celdas) {
             $n = $idx + 2; // 1 = cabecera
-            if ($this->filaVacia($celdas)) {
-                continue;
-            }
 
             $fila = self::mapearFila($celdas, $mapa);
             $errores = [];
@@ -183,7 +204,7 @@ final class FacturaImportService
                     $errores['numero_factura'] = "Repetido en el archivo (fila {$numerosEnArchivo[$numero]})";
                 } else {
                     $numerosEnArchivo[$numero] = $n;
-                    if (FacturaVenta::withTrashed()->where('numero_factura', $numero)->exists()) {
+                    if (isset($existentes[$numero])) {
                         $errores['numero_factura'] = 'Ya existe una factura con ese número';
                     }
                 }
@@ -394,8 +415,9 @@ final class FacturaImportService
         }
         if (preg_match('/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/', $s, $m)) {
             $anio = (int) $m[3];
-            if ($anio < 100) {
-                $anio += 2000;
+            if (strlen($m[3]) <= 2) {
+                // Pivote: 00-49 → 20xx, 50-99 → 19xx (un histórico puede traer facturas de los 90)
+                $anio += $anio < 50 ? 2000 : 1900;
             }
             return sprintf('%04d-%02d-%02d', $anio, (int) $m[2], (int) $m[1]);
         }
@@ -520,8 +542,9 @@ final class FacturaImportService
         // BOM y saltos de línea Windows
         $contenido = preg_replace('/^\xEF\xBB\xBF/', '', $contenido) ?? $contenido;
         $contenido = str_replace("\r\n", "\n", $contenido);
-        $lineas = preg_split('/\n/', trim($contenido)) ?: [];
-        if ($lineas === [] || trim($lineas[0]) === '') {
+        $contenido = trim($contenido);
+        $primeraLinea = strtok($contenido, "\n");
+        if ($contenido === '' || $primeraLinea === false || trim($primeraLinea) === '') {
             throw new ValidationException('El archivo está vacío', ['archivo' => 'vacío']);
         }
 
@@ -529,18 +552,28 @@ final class FacturaImportService
         $delim = ',';
         $max = -1;
         foreach ([',', ';', "\t", '|'] as $d) {
-            $c = substr_count($lineas[0], $d);
+            $c = substr_count($primeraLinea, $d);
             if ($c > $max) {
                 $max = $c;
                 $delim = $d;
             }
         }
 
-        $filas = [];
-        foreach ($lineas as $linea) {
-            $filas[] = str_getcsv($linea, $delim, '"', '\\');
+        // fgetcsv sobre un stream (no str_getcsv por línea): respeta celdas
+        // entrecomilladas con saltos de línea adentro, como las que exporta Excel
+        $stream = fopen('php://memory', 'r+');
+        if ($stream === false) {
+            throw new \RuntimeException('No se pudo abrir el stream del CSV');
         }
-        $cabeceras = array_map(static fn (mixed $c): string => trim((string) $c), array_shift($filas));
+        fwrite($stream, $contenido);
+        rewind($stream);
+        $filas = [];
+        while (($campos = fgetcsv($stream, null, $delim, '"', '\\')) !== false) {
+            $filas[] = $campos;
+        }
+        fclose($stream);
+
+        $cabeceras = array_map(static fn (mixed $c): string => trim((string) $c), (array) array_shift($filas));
         return [$cabeceras, $filas];
     }
 

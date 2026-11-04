@@ -162,6 +162,32 @@ final class FacturaImportServiceTest extends DatabaseTestCase
         $this->import->preview($this->csv([]), 'vacio.csv', $this->user);
     }
 
+    public function testPreviewRespetaCeldasEntrecomilladasConSaltoDeLinea(): void
+    {
+        // Excel exporta las observaciones multilínea entre comillas con "\n" adentro
+        $csv = "Número,Tipo,CUIT,Fecha factura,Sin IVA,Con IVA,Observaciones\n"
+            . "N-1,A,{$this->cuit},2025-01-10,100,121,\"linea 1\nlinea 2, con coma\"\n"
+            . "N-2,A,{$this->cuit},2025-01-11,200,242,simple\n";
+
+        $p = $this->import->preview($csv, 'multilinea.csv', $this->user);
+
+        self::assertSame(2, $p['resumen']['total'], 'la celda multilínea no parte la fila');
+        self::assertSame(2, $p['resumen']['validas']);
+        self::assertSame("linea 1\nlinea 2, con coma", $p['filas'][0]['datos']['observaciones']);
+        self::assertSame('N-2', $p['filas'][1]['datos']['numero_factura']);
+        self::assertSame(3, $p['filas'][1]['n']);
+    }
+
+    public function testElTopeDeFilasNoCuentaLasVacias(): void
+    {
+        // 3 filas con datos + muchas vacías (como deja Excel con formato aplicado)
+        $filas = [$this->filaOk('V-1'), $this->filaOk('V-2'), $this->filaOk('V-3')];
+        $vacias = array_fill(0, FacturaImportService::MAX_FILAS + 10, array_fill(0, 13, ''));
+        $p = $this->import->preview($this->csv(array_merge($filas, $vacias)), 'con-vacias.csv', $this->user);
+
+        self::assertSame(3, $p['resumen']['total']);
+    }
+
     public function testPreviewIgnoraColumnasDelExportYSaltaFilasVacias(): void
     {
         $csv = "Número,Tipo,Cliente,CUIT,Fecha factura,Estado,Sin IVA,Con IVA,Columna rara\n"

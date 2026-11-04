@@ -20,12 +20,25 @@ export default function LoginPage() {
 
 /**
  * Solo aceptamos rutas internas absolutas ("/facturas/nueva?x=1"). Cualquier
- * cosa con esquema, host o "//" se descarta para no servir de open redirect.
+ * cosa con esquema, host, "//" o barra invertida se descarta para no servir
+ * de open redirect: el browser normaliza "/\evil.com" a "//evil.com", así que
+ * además de mirar el prefijo se resuelve la URL y se exige el mismo origen.
  */
 function destinoSeguro(next: string | null): string {
   if (!next) return '/dashboard';
-  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/login')) {
+  if (!next.startsWith('/') || next.startsWith('//') || next.includes('\\') || next.startsWith('/login')) {
     return '/dashboard';
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const url = new URL(next, window.location.origin);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) {
+        return '/dashboard';
+      }
+      return url.pathname + url.search + url.hash;
+    } catch {
+      return '/dashboard';
+    }
   }
   return next;
 }

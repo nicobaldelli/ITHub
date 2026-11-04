@@ -27,7 +27,11 @@ jobs:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('api/composer.lock') }}
 
+      # COMPOSER_TOKEN: los dists bajan de api.github.com; sin token los runners
+      # compartidos pegan el límite anónimo (60/h) y el job falla al azar.
       - run: composer install --no-interaction --no-progress --prefer-dist
+        env:
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: composer test
 

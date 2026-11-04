@@ -15,10 +15,12 @@
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
     # Las rutas de la app son carpetas con index.html (trailingSlash: true),
-    # así que /facturas resuelve solo. Lo que no exista va al 404 de Next.
+    # así que /facturas resuelve solo. Lo que no exista responde 404 de verdad
+    # (R=404 dispara el ErrorDocument de abajo, que sirve la página de Next
+    # con el status correcto; un rewrite directo a 404.html devolvería 200).
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ /404.html [L]
+    RewriteRule ^ - [R=404,L]
 </IfModule>
 
 ErrorDocument 404 /404.html
