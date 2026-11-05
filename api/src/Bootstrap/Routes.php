@@ -54,6 +54,9 @@ final class Routes
         $app->group('/auth', function (RouteCollectorProxy $g): void {
             $g->post('/login', [AuthController::class, 'login'])
                 ->add(new RateLimitMiddleware('login'));
+            // Mismo perfil de rate limit que el login (por IP; no hay email en el body)
+            $g->post('/google', [AuthController::class, 'google'])
+                ->add(new RateLimitMiddleware('login'));
             $g->post('/refresh', [AuthController::class, 'refresh'])
                 ->add(new RateLimitMiddleware('refresh'));
             $g->post('/logout', [AuthController::class, 'logout']);

@@ -19,6 +19,7 @@ use Ramsey\Uuid\Uuid;
  * Controlador de autenticación.
  *
  * - POST   /auth/login            credenciales → access + refresh (refresh va en cookie HttpOnly)
+ * - POST   /auth/google           ID token de Google (Workspace, dominio restringido) → misma sesión
  * - POST   /auth/refresh          rota tokens leyendo cookie
  * - POST   /auth/logout           revoca el refresh actual
  * - POST   /auth/logout-all       revoca TODOS los refresh del usuario (cerrar todas las sesiones)
@@ -55,7 +56,33 @@ final class AuthController
 
         $result = $this->auth->login($email, $password, $request);
 
-        // Set refresh cookie
+        return $this->respuestaDeLogin($response, $result);
+    }
+
+    // ============================================================
+    // POST /auth/google  { credential: <ID token de Google Identity Services> }
+    // ============================================================
+    public function google(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $body = (array) $request->getParsedBody();
+        $credential = isset($body['credential']) ? trim((string) $body['credential']) : '';
+
+        if ($credential === '') {
+            throw new ValidationException('Falta el token de Google', ['credential' => 'requerido']);
+        }
+
+        $result = $this->auth->loginConGoogle($credential, $request);
+
+        return $this->respuestaDeLogin($response, $result);
+    }
+
+    /**
+     * Misma respuesta y mismas cookies para cualquier forma de login.
+     *
+     * @param array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int} $result
+     */
+    private function respuestaDeLogin(ResponseInterface $response, array $result): ResponseInterface
+    {
         $response = $this->setRefreshCookie(
             $response,
             $result['refresh_token'],

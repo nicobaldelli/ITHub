@@ -89,26 +89,106 @@ final class AuthService
             throw new AuthException('Usuario inactivo', 'USER_INACTIVE');
         }
 
-        // Login OK. Reset de contadores + actualización de last_login
-        $user->failed_login_attempts = 0;
-        $user->locked_until = null;
-        $user->last_login = date('Y-m-d H:i:s');
-        $user->last_login_ip = $this->audit->clientIp($request);
-
         // Rehash si bcrypt cost cambió
         if (password_needs_rehash($user->password_hash, PASSWORD_BCRYPT, ['cost' => $this->secCfg['bcrypt_cost']])) {
             $user->password_hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => $this->secCfg['bcrypt_cost']]);
         }
 
+        $sesion = $this->abrirSesion($user, $request, ['via' => 'password']);
+
+        $this->equalizeTiming($startMs);
+
+        return $sesion;
+    }
+
+    // ============================================================
+    // LOGIN CON GOOGLE (Workspace, dominio restringido)
+    // ============================================================
+
+    /**
+     * Autentica con un ID token de "Sign in with Google". Reglas:
+     *  - el token tiene que ser válido para nuestro client id (lo verifica
+     *    GoogleIdTokenVerifier contra las claves públicas de Google)
+     *  - email verificado y cuenta del dominio permitido (`hd`)
+     *  - el email tiene que existir en ITHub como usuario activo: NO se crean
+     *    usuarios solos, el admin los da de alta en /usuarios con su rol
+     *  - respeta el lockout: una cuenta bloqueada por intentos fallidos no
+     *    entra por Google tampoco
+     *
+     * @return array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int}
+     */
+    public function loginConGoogle(string $idToken, ServerRequestInterface $request): array
+    {
+        $cfg = $this->container->get('settings')['google_login'] ?? [];
+        $dominio = strtolower((string) ($cfg['hosted_domain'] ?? ''));
+        if (($cfg['client_id'] ?? '') === '' || $dominio === '') {
+            throw new AuthException('Login con Google no habilitado', 'GOOGLE_LOGIN_DISABLED');
+        }
+
+        /** @var GoogleIdTokenVerifier $verifier */
+        $verifier = $this->container->get(GoogleIdTokenVerifier::class);
+        $g = $verifier->verificar($idToken);
+        // El verificador ya normaliza, pero no dependemos de eso: los chequeos
+        // de dominio y la búsqueda del usuario son case-insensitive siempre.
+        $g['email'] = strtolower(trim($g['email']));
+        $g['hd'] = strtolower(trim($g['hd']));
+
+        if ($g['email'] === '' || !$g['email_verified']) {
+            $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'google_email_no_verificado', 'via' => 'google'], $request);
+            throw new AuthException('La cuenta de Google no tiene el email verificado', 'GOOGLE_EMAIL_UNVERIFIED');
+        }
+
+        // `hd` solo viene en cuentas de Workspace; un Gmail personal no lo trae.
+        // Se chequea además el sufijo del email por si el token no lo incluye.
+        $emailDominio = substr(strrchr($g['email'], '@') ?: '', 1);
+        if ($g['hd'] !== $dominio || $emailDominio !== $dominio) {
+            $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'google_dominio', 'via' => 'google', 'hd' => $g['hd'], 'email_hash' => hash('sha256', $g['email'])], $request);
+            throw new AuthException("Solo se puede entrar con una cuenta @{$dominio}", 'GOOGLE_DOMAIN');
+        }
+
+        $user = User::where('email', $g['email'])->first();
+        if ($user === null) {
+            $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'google_usuario_inexistente', 'via' => 'google', 'email_hash' => hash('sha256', $g['email'])], $request);
+            throw new AuthException(
+                'Tu cuenta de Google no está dada de alta en ITHub. Pedile al administrador que te cree el usuario con ese email.',
+                'GOOGLE_USER_NOT_FOUND'
+            );
+        }
+        if ($user->isLocked()) {
+            $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'locked', 'via' => 'google'], $request);
+            throw new AuthException('Cuenta bloqueada temporalmente. Probá más tarde.', 'ACCOUNT_LOCKED');
+        }
+        if (!$user->activo) {
+            throw new AuthException('Usuario inactivo', 'USER_INACTIVE');
+        }
+
+        return $this->abrirSesion($user, $request, ['via' => 'google', 'google_sub' => $g['sub']]);
+    }
+
+    /**
+     * Lo que tienen en común todos los logins una vez que la identidad está
+     * probada: reset del lockout, last_login, emisión de access + refresh y
+     * auditoría.
+     *
+     * @param array<string,mixed> $auditExtra
+     * @return array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int}
+     */
+    private function abrirSesion(User $user, ServerRequestInterface $request, array $auditExtra): array
+    {
+        $user->failed_login_attempts = 0;
+        $user->locked_until = null;
+        $user->last_login = date('Y-m-d H:i:s');
+        $user->last_login_ip = $this->audit->clientIp($request);
         $user->save();
 
-        // Emitir tokens
         $access = $this->jwt->issueAccessToken($user);
         $refresh = $this->issueRefreshToken($user, familyId: null, request: $request);
 
-        $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN, [], $request);
-
-        $this->equalizeTiming($startMs);
+        $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN, $auditExtra, $request);
 
         return [
             'user' => $user,

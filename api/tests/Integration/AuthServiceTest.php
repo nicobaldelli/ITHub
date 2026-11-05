@@ -10,6 +10,7 @@ use ITHub\Api\Exceptions\ValidationException;
 use ITHub\Api\Models\RefreshToken;
 use ITHub\Api\Models\User;
 use ITHub\Api\Services\AuthService;
+use ITHub\Api\Services\GoogleIdTokenVerifier;
 use ITHub\Api\Tests\Support\DatabaseTestCase;
 
 /**
@@ -360,5 +361,179 @@ final class AuthServiceTest extends DatabaseTestCase
 
         $this->auth->validatePasswordStrength('Password-Segura-1!');
         self::assertTrue(true, 'una password que cumple todo no lanza');
+    }
+
+    // ------------------------------------------------------------
+    // Login con Google
+    // ------------------------------------------------------------
+
+    /**
+     * Habilita el login con Google en settings y reemplaza el verificador por
+     * uno que devuelve el payload dado sin llamar a Google. Lo que se prueba
+     * acá son las reglas de negocio sobre el payload, no la firma del token
+     * (eso lo hace google/apiclient).
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function habilitarGoogle(array $payload, string $dominio = 'intellihelp.tech'): void
+    {
+        $settings = $this->container->get('settings');
+        $settings['google_login'] = ['client_id' => 'test-client-id', 'hosted_domain' => $dominio];
+        $this->container->set('settings', $settings);
+
+        $payload = array_merge([
+            'sub' => '1234567890',
+            'email' => 'nico@intellihelp.tech',
+            'email_verified' => true,
+            'hd' => 'intellihelp.tech',
+            'name' => 'Nico',
+        ], $payload);
+
+        $this->container->set(GoogleIdTokenVerifier::class, new class($payload) extends GoogleIdTokenVerifier {
+            /** @param array<string,mixed> $payload */
+            public function __construct(private readonly array $payload)
+            {
+                parent::__construct('test-client-id');
+            }
+
+            public function verificar(string $idToken): array
+            {
+                if ($idToken === 'token-invalido') {
+                    throw new AuthException('Token de Google inválido o vencido', 'GOOGLE_TOKEN_INVALID');
+                }
+                /** @var array{sub:string,email:string,email_verified:bool,hd:string,name:string} */
+                return $this->payload;
+            }
+        });
+    }
+
+    private function loginGoogle(string $token = 'token-ok'): array
+    {
+        return $this->auth->loginConGoogle($token, $this->makeRequest(ip: '10.0.0.5'));
+    }
+
+    public function testGoogleDeshabilitadoSinClientId(): void
+    {
+        $this->crearUsuario(['email' => 'nico@intellihelp.tech']);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_LOGIN_DISABLED', $code);
+    }
+
+    public function testGoogleOkAbreLaMismaSesionQueElLoginConPassword(): void
+    {
+        $id = $this->crearUsuario(['email' => 'nico@intellihelp.tech', 'failed_login_attempts' => 3]);
+        $this->habilitarGoogle([]);
+
+        $res = $this->loginGoogle();
+
+        self::assertSame($id, $res['user']->id);
+        self::assertNotEmpty($res['access_token']);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $res['refresh_token']);
+        self::assertSame(1, RefreshToken::where('user_id', $id)->count());
+
+        $user = User::find($id);
+        self::assertSame(0, (int) $user->failed_login_attempts, 'el login OK resetea el contador');
+        self::assertNotNull($user->last_login);
+        self::assertSame('10.0.0.5', $user->last_login_ip);
+
+        $audit = Capsule::table('auditoria')->where('accion', 'login')->first();
+        self::assertNotNull($audit);
+        self::assertStringContainsString('"via":"google"', (string) $audit->campos_modificados);
+    }
+
+    public function testGoogleElEmailDelTokenSeNormaliza(): void
+    {
+        $id = $this->crearUsuario(['email' => 'nico@intellihelp.tech']);
+        $this->habilitarGoogle(['email' => '  Nico@IntelliHelp.tech ', 'hd' => 'IntelliHelp.tech']);
+
+        // El verificador real ya normaliza; el fake devuelve el payload crudo,
+        // así que acá se cubre la comparación case-insensitive de dominio y
+        // la búsqueda del usuario en minúsculas que hace AuthService.
+        $res = $this->loginGoogle();
+        self::assertSame($id, $res['user']->id);
+    }
+
+    public function testGoogleRechazaTokenInvalido(): void
+    {
+        $this->crearUsuario(['email' => 'nico@intellihelp.tech']);
+        $this->habilitarGoogle([]);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle('token-invalido'));
+        self::assertSame('GOOGLE_TOKEN_INVALID', $code);
+    }
+
+    public function testGoogleRechazaEmailNoVerificado(): void
+    {
+        $this->crearUsuario(['email' => 'nico@intellihelp.tech']);
+        $this->habilitarGoogle(['email_verified' => false]);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_EMAIL_UNVERIFIED', $code);
+        self::assertSame(0, RefreshToken::count());
+    }
+
+    public function testGoogleRechazaCuentasDeOtroDominio(): void
+    {
+        // Gmail personal: sin `hd` y con otro sufijo de email
+        $this->crearUsuario(['email' => 'nico@gmail.com']);
+        $this->habilitarGoogle(['email' => 'nico@gmail.com', 'hd' => '']);
+
+        [$code, $msg] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_DOMAIN', $code);
+        self::assertStringContainsString('@intellihelp.tech', $msg);
+
+        // Workspace de otro dominio, aunque el email exista en ITHub
+        $this->crearUsuario(['email' => 'otro@otraempresa.com']);
+        $this->habilitarGoogle(['email' => 'otro@otraempresa.com', 'hd' => 'otraempresa.com']);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_DOMAIN', $code);
+
+        // `hd` correcto pero el email no es del dominio (no debería pasar en
+        // Google, pero no confiamos en un solo claim)
+        $this->habilitarGoogle(['email' => 'nico@gmail.com', 'hd' => 'intellihelp.tech']);
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_DOMAIN', $code);
+
+        self::assertSame(0, RefreshToken::count());
+        self::assertSame(3, Capsule::table('auditoria')->where('accion', 'login_fallido')->count());
+    }
+
+    public function testGoogleNoCreaUsuariosQueNoExisten(): void
+    {
+        $this->habilitarGoogle(['email' => 'nuevo@intellihelp.tech']);
+
+        [$code, $msg] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_USER_NOT_FOUND', $code);
+        self::assertStringContainsString('administrador', $msg);
+        self::assertSame(0, User::count(), 'no se auto-registra');
+    }
+
+    public function testGoogleRespetaUsuarioInactivoYBloqueo(): void
+    {
+        $this->crearUsuario(['email' => 'nico@intellihelp.tech', 'activo' => 0]);
+        $this->habilitarGoogle([]);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('USER_INACTIVE', $code);
+
+        User::where('email', 'nico@intellihelp.tech')->update([
+            'activo' => 1,
+            'locked_until' => date('Y-m-d H:i:s', time() + 600),
+        ]);
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('ACCOUNT_LOCKED', $code);
+        self::assertSame(0, RefreshToken::count());
+    }
+
+    public function testGoogleExigeDominioConfigurado(): void
+    {
+        $this->crearUsuario(['email' => 'nico@intellihelp.tech']);
+        $this->habilitarGoogle([], dominio: '');
+
+        [$code] = $this->esperarAuthException(fn () => $this->loginGoogle());
+        self::assertSame('GOOGLE_LOGIN_DISABLED', $code);
     }
 }

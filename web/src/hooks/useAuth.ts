@@ -30,6 +30,26 @@ export function useAuth() {
     [setSession],
   );
 
+  /** Login con el ID token que devuelve el botón de Google. Misma sesión que `login`. */
+  const loginGoogle = useCallback(
+    async (credential: string) => {
+      try {
+        const resp = await api.post<ApiSuccess<LoginResponse>>('/auth/google', { credential });
+        const data = resp.data.data;
+        setSession({
+          user: data.user,
+          accessToken: data.access_token,
+          accessExpiresAt: data.access_expires_at,
+          csrfToken: data.csrf_token,
+        });
+        return data;
+      } catch (err) {
+        throw new Error(apiErrorMessage(err, 'No se pudo iniciar sesión con Google'));
+      }
+    },
+    [setSession],
+  );
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
@@ -86,6 +106,7 @@ export function useAuth() {
     hydrated,
     isAuthenticated: !!accessToken && !!user,
     login,
+    loginGoogle,
     logout,
     hydrate,
     changePassword,

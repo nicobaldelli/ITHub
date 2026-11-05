@@ -302,6 +302,18 @@ chmod 0600 ~/domains/apithub.intellihelp.tech/app/api/storage/credentials/servic
 
 Y en la app: `/configuracion` → `drive_root_folder_id`.
 
+## C2b. Login con Google (opcional)
+
+Guía completa en `docs/google-login-setup.md`. Resumen:
+
+1. Google Cloud (mismo proyecto que Drive): pantalla de consentimiento
+   **Interno** + ID de cliente OAuth tipo **Aplicación web** con origen
+   `https://ithub.intellihelp.tech`. Sin redirect URIs, sin client secret.
+2. `api/.env`: `GOOGLE_OAUTH_CLIENT_ID=<client id>`.
+3. `web/.env.production`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID=<mismo client id>`,
+   `pnpm build` y subir `out/` de nuevo (el client id va dentro del bundle).
+4. El usuario tiene que existir en `/usuarios` con su email de Workspace.
+
 ## C3. SMTP
 
 Configurable desde la UI: `/configuracion` → grupo SMTP (`smtp_pass` no se
@@ -314,6 +326,7 @@ botón "Enviar recordatorios" (pide confirmación).
 |---|---|
 | 1 | `curl https://apithub.intellihelp.tech/api/v1/health` → ok |
 | 2 | Login + cambio de password forzado |
+| 2b | (si C2b) Botón "Iniciar sesión con Google" entra con cuenta @intellihelp.tech dada de alta |
 | 3 | F5 estando logueado → sesión persiste (y navegar atrás/adelante también) |
 | 4 | Crear cliente (CUIT válido) |
 | 5 | Crear servicio mantenimiento con template |

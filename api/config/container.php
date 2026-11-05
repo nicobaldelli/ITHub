@@ -17,6 +17,7 @@ use ITHub\Api\Services\BackupService;
 use ITHub\Api\Services\ClienteService;
 use ITHub\Api\Services\DashboardService;
 use ITHub\Api\Services\FacturaImportService;
+use ITHub\Api\Services\GoogleIdTokenVerifier;
 use ITHub\Api\Services\FacturaService;
 use ITHub\Api\Services\JwtService;
 use ITHub\Api\Services\ServicioAjusteService;
@@ -120,6 +121,10 @@ return [
     AuditoriaService::class => function (): AuditoriaService {
         return new AuditoriaService();
     },
+
+    GoogleIdTokenVerifier::class => fn (ContainerInterface $c) => new GoogleIdTokenVerifier(
+        (string) ($c->get('settings')['google_login']['client_id'] ?? '')
+    ),
 
     AuthService::class => function (ContainerInterface $c): AuthService {
         return new AuthService(

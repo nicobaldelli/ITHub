@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
+import { GoogleSignInButton, googleLoginHabilitado } from '@/components/auth/GoogleSignInButton';
 
 export default function LoginPage() {
   // useSearchParams exige Suspense en static export
@@ -46,24 +47,38 @@ function destinoSeguro(next: string | null): string {
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, loginGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  function entrar(res: { user: { nombre: string; must_change_password: boolean } }) {
+    toast.success(`Bienvenido, ${res.user.nombre}`);
+    router.push(
+      res.user.must_change_password
+        ? '/cambiar-password'
+        : destinoSeguro(searchParams?.get('next') ?? null),
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await login(email, password);
-      toast.success(`Bienvenido, ${res.user.nombre}`);
-      router.push(
-        res.user.must_change_password
-          ? '/cambiar-password'
-          : destinoSeguro(searchParams?.get('next') ?? null),
-      );
+      entrar(await login(email, password));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onGoogle(credential: string) {
+    setLoading(true);
+    try {
+      entrar(await loginGoogle(credential));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión con Google');
     } finally {
       setLoading(false);
     }
@@ -82,6 +97,17 @@ function LoginInner() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-5 rounded-xl bg-white p-8 shadow-card">
+          {googleLoginHabilitado && (
+            <>
+              <GoogleSignInButton onCredential={onGoogle} disabled={loading} />
+              <div className="flex items-center gap-3 text-xs text-neutral-400">
+                <span className="h-px flex-1 bg-neutral-200" />
+                o con email y password
+                <span className="h-px flex-1 bg-neutral-200" />
+              </div>
+            </>
+          )}
+
           <div>
             <Label htmlFor="email">Email</Label>
             <div className="relative">

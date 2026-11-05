@@ -144,6 +144,13 @@ return [
         'max_file_size_bytes' => 25 * 1024 * 1024, // 25 MB
     ],
 
+    // Login con Google (Sign in with Google, solo cuentas del dominio).
+    // Sin client_id el endpoint /auth/google responde GOOGLE_LOGIN_DISABLED.
+    'google_login' => [
+        'client_id' => env_get('GOOGLE_OAUTH_CLIENT_ID', ''),
+        'hosted_domain' => env_get('GOOGLE_OAUTH_HOSTED_DOMAIN', 'intellihelp.tech'),
+    ],
+
     'smtp' => [
         'host' => env_get('SMTP_HOST', ''),
         'port' => env_get('SMTP_PORT', 587, 'int'),

@@ -65,6 +65,14 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 - Al login: si flag activo, frontend redirige a `/cambiar-password` sin acceso al resto de la app
 - Backend: `MustChangePasswordMiddleware` bloquea todas las rutas protegidas (401 `MUST_CHANGE_PASSWORD`) mientras el flag esté activo; solo quedan accesibles `/auth/*`. Así no se puede usar la API por curl con la password temporal
 
+### 2.6b Login con Google (opcional)
+- Flujo de ID token de Google Identity Services (popup, sin redirect, sin client secret). Endpoint `POST /auth/google`, mismo rate limit que `/auth/login`
+- La API verifica el token con `google/apiclient` (firma contra las claves públicas de Google, `exp`, `aud` = nuestro client id) y después exige: `email_verified`, `hd` **y** sufijo del email iguales al dominio configurado, usuario **existente y activo** en ITHub, sin lockout vigente. Nunca auto-registra
+- Si pasa, abre exactamente la misma sesión que el login con password (`AuthService::abrirSesion`): access en memoria, refresh en cookie HttpOnly, CSRF, auditoría con `via: google`
+- Pantalla de consentimiento **Interna** en Google Cloud como segunda barrera (solo cuentas de la organización)
+- Deshabilitado por default: sin `GOOGLE_OAUTH_CLIENT_ID` el endpoint responde `GOOGLE_LOGIN_DISABLED` y el front no muestra el botón
+- Detalle en `docs/google-login-setup.md`
+
 ### 2.7 2FA TOTP (Fase 3)
 - Tabla `users_2fa` opcional (no incluida en MVP)
 - Algoritmo TOTP RFC 6238, 6 dígitos, ventana ±1
@@ -135,12 +143,13 @@ Cabeceras removidas:
 **Frontend** (static export, sin PHP): las cabeceras las pone el `.htaccess` versionado en `web/public/.htaccess` (Next lo copia a `out/` en cada build). Incluye HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy y esta CSP:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://apithub.intellihelp.tech; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://apithub.intellihelp.tech https://accounts.google.com; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 ```
 
 - `'unsafe-inline'` en script/style: Next static export inyecta scripts y estilos inline y no hay nonces sin server. No se permite `eval`
 - `font-src 'self'`: Saira se sirve local vía `next/font` (no se carga Google Fonts en runtime)
-- `connect-src`: solo el propio origen y el API. Si cambia el subdominio del API hay que actualizarla
+- `connect-src`: solo el propio origen, el API y Google. Si cambia el subdominio del API hay que actualizarla
+- `https://accounts.google.com` en script/style/frame/connect: único origen externo, lo necesita el botón de "Iniciar sesión con Google" (ver 2.6b). Si se desactiva el login con Google se puede quitar
 
 ---
 
