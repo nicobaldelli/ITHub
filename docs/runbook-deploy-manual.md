@@ -137,6 +137,13 @@ SEED_ADMIN_EMAIL=nbaldelli@intellihelp.tech SEED_ADMIN_NOMBRE=Nicolas SEED_ADMIN
 ⚠️ El seed **imprime la password temporal del admin una sola vez**. Anotala.
 Si no pasás `SEED_ADMIN_EMAIL`, el admin se crea como `admin@intellihelp.tech`.
 
+Si la perdiste (o te bloqueaste con 5 intentos fallidos), no hace falta tocar
+la base: el script genera otra temporal y desbloquea la cuenta:
+
+```bash
+php scripts/reset_password.php nbaldelli@intellihelp.tech
+```
+
 Verificación:
 
 ```bash

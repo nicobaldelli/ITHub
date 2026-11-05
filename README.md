@@ -94,6 +94,14 @@ Credenciales iniciales (cambiar en primer login):
 - email: `admin@intellihelp.tech`
 - password: ver salida del seed (random + bcrypt; se muestra una sola vez)
 
+¿La perdiste o te bloqueaste? Resetea y desbloquea sin tocar la base:
+
+```bash
+docker compose exec api php scripts/reset_password.php admin@intellihelp.tech
+```
+
+No hay login con Google: los usuarios se crean en `/usuarios` (email + password).
+
 ---
 
 ## 🎨 Identidad visual
