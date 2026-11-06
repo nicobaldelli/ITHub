@@ -18,13 +18,12 @@ use Ramsey\Uuid\Uuid;
 /**
  * Controlador de autenticación.
  *
- * - POST   /auth/login            credenciales → access + refresh (refresh va en cookie HttpOnly)
- * - POST   /auth/google           ID token de Google (Workspace, dominio restringido) → misma sesión
+ * - POST   /auth/google           ID token de Google (Workspace, dominio restringido) → access + refresh
+ *                                  (refresh va en cookie HttpOnly). Es el unico login: no hay password
  * - POST   /auth/refresh          rota tokens leyendo cookie
  * - POST   /auth/logout           revoca el refresh actual
  * - POST   /auth/logout-all       revoca TODOS los refresh del usuario (cerrar todas las sesiones)
  * - GET    /auth/me               usuario autenticado
- * - POST   /auth/change-password  cambia password (válido también con must_change_password=true)
  */
 final class AuthController
 {
@@ -38,25 +37,6 @@ final class AuthController
         $this->container->get(Capsule::class);
         $this->auth = $this->container->get(AuthService::class);
         $this->cookieCfg = $this->container->get('settings')['cookie'];
-    }
-
-    // ============================================================
-    // POST /auth/login
-    // ============================================================
-    public function login(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-    {
-        $body = (array) $request->getParsedBody();
-        $email = isset($body['email']) ? (string) $body['email'] : '';
-        $password = isset($body['password']) ? (string) $body['password'] : '';
-
-        if ($email === '' || $password === '') {
-            throw new ValidationException('Email y password son requeridos',
-                ['email' => $email === '' ? 'requerido' : null, 'password' => $password === '' ? 'requerido' : null]);
-        }
-
-        $result = $this->auth->login($email, $password, $request);
-
-        return $this->respuestaDeLogin($response, $result);
     }
 
     // ============================================================
@@ -99,7 +79,6 @@ final class AuthController
             'access_expires_at' => $result['access_expires_at'],
             'token_type' => 'Bearer',
             'csrf_token' => $csrfToken,
-            'must_change_password' => $result['user']->must_change_password,
         ]);
     }
 
@@ -169,30 +148,6 @@ final class AuthController
     }
 
     // ============================================================
-    // POST /auth/change-password
-    // ============================================================
-    public function changePassword(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-    {
-        /** @var User $user */
-        $user = $request->getAttribute('user');
-        $body = (array) $request->getParsedBody();
-
-        $current = isset($body['current_password']) ? (string) $body['current_password'] : null;
-        $new = isset($body['new_password']) ? (string) $body['new_password'] : '';
-
-        if ($new === '') {
-            throw new ValidationException('new_password es requerido', ['new_password' => 'requerido']);
-        }
-
-        $this->auth->changePassword($user, $current, $new, $request);
-
-        // Después de cambiar password se invalidan todos los refresh; el cliente debe re-login.
-        $response = $this->clearRefreshCookie($response);
-
-        return ResponseFactory::json($response, ['message' => 'Password actualizado. Volvé a iniciar sesión.']);
-    }
-
-    // ============================================================
     // Helpers privados
     // ============================================================
 
@@ -205,7 +160,6 @@ final class AuthController
             'email' => $user->email,
             'rol' => $user->rol,
             'activo' => $user->activo,
-            'must_change_password' => $user->must_change_password,
             'last_login' => $user->last_login?->format('c'),
         ];
     }

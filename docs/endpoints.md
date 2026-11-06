@@ -34,12 +34,10 @@ Salvo aclaración, todo lo no-auth requiere JWT válido y aplica `general` rate 
 
 | Método | Path | Auth | Roles | Rate | Descripción |
 |---|---|---|---|---|---|
-| POST | `/auth/login` | No | — | `login` | Email + password → access JWT + cookie refresh |
-| POST | `/auth/google` | No | — | `login` | `{credential}` (ID token de Google) → misma respuesta que login. Solo cuentas Workspace del dominio y usuarios ya existentes. Errores: `GOOGLE_LOGIN_DISABLED`, `GOOGLE_TOKEN_INVALID`, `GOOGLE_EMAIL_UNVERIFIED`, `GOOGLE_DOMAIN`, `GOOGLE_USER_NOT_FOUND`, `USER_INACTIVE`, `ACCOUNT_LOCKED` |
+| POST | `/auth/google` | No | — | `login` | **Único login.** `{credential}` (ID token de Google) → access JWT + cookie refresh. Solo cuentas Workspace del dominio y usuarios ya existentes. Errores: `GOOGLE_LOGIN_DISABLED`, `GOOGLE_TOKEN_INVALID`, `GOOGLE_EMAIL_UNVERIFIED`, `GOOGLE_DOMAIN`, `GOOGLE_USER_NOT_FOUND`, `USER_INACTIVE`, `ACCOUNT_LOCKED` |
 | POST | `/auth/refresh` | Cookie | — | `refresh` | Rota refresh y devuelve nuevo access |
 | POST | `/auth/logout` | Cookie | — | — | Revoca el refresh actual |
 | GET | `/auth/me` | JWT | todos | — | Perfil del usuario |
-| POST | `/auth/change-password` | JWT | todos | `change_password` | Cambia password (requiere actual) |
 | POST | `/auth/logout-all` | JWT | todos | — | Revoca toda la familia de refresh tokens del user |
 
 ---
@@ -176,7 +174,6 @@ Endpoints del spec original que **todavía no existen** en el router:
 - `GET /users` — listado (admin)
 - `POST /users` — alta (admin)
 - `PUT /users/{id}` — edición (admin)
-- `POST /users/{id}/reset-password` — fuerza must_change_password (admin)
 - `DELETE /users/{id}` — desactivar (admin)
 
 ### Auditoría

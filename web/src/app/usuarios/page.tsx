@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Pencil, KeyRound, UserX, UserCheck } from 'lucide-react';
+import { Search, Plus, Pencil, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { PasswordTemporalModal } from '@/components/usuarios/PasswordTemporalModal';
 import { useUsuarios, useUsuarioMutations, type UsuariosFilters } from '@/hooks/useUsuarios';
 import { useAuthStore } from '@/stores/auth';
 import { rolLabel, ROLES } from '@/lib/usuario-schema';
@@ -25,12 +24,7 @@ export default function UsuariosPage() {
   const yo = useAuthStore((s) => s.user);
   const esAdmin = yo?.rol === 'admin';
 
-  const [modal, setModal] = useState<
-    | null
-    | { kind: 'reset'; user: Usuario }
-    | { kind: 'desactivar'; user: Usuario }
-    | { kind: 'pwd'; user: Usuario; password: string }
-  >(null);
+  const [modal, setModal] = useState<null | { kind: 'desactivar'; user: Usuario }>(null);
 
   if (!esAdmin) {
     return (
@@ -136,9 +130,6 @@ export default function UsuariosPage() {
                         {esYo && (
                           <span className="ml-2 text-xs text-neutral-400">(vos)</span>
                         )}
-                        {u.must_change_password && (
-                          <div className="text-xs text-amber-600">Debe cambiar password</div>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-neutral-600">{u.email}</td>
                       <td className="px-4 py-3">
@@ -161,14 +152,6 @@ export default function UsuariosPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setModal({ kind: 'reset', user: u })}
-                            title="Reset password"
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
                           {u.activo ? (
                             <Button
                               variant="ghost"
@@ -193,13 +176,6 @@ export default function UsuariosPage() {
         )}
       </Card>
 
-      {modal?.kind === 'reset' && (
-        <ResetPasswordConfirm
-          user={modal.user}
-          onClose={() => setModal(null)}
-          onSuccess={(pwd) => setModal({ kind: 'pwd', user: modal.user, password: pwd })}
-        />
-      )}
       {modal?.kind === 'desactivar' && (
         <DesactivarConfirm
           user={modal.user}
@@ -210,63 +186,7 @@ export default function UsuariosPage() {
           }}
         />
       )}
-      {modal?.kind === 'pwd' && (
-        <PasswordTemporalModal
-          open
-          password={modal.password}
-          email={modal.user.email}
-          title="Password reseteada"
-          onClose={() => {
-            setModal(null);
-            reload();
-          }}
-        />
-      )}
     </AppShell>
-  );
-}
-
-function ResetPasswordConfirm({
-  user,
-  onClose,
-  onSuccess,
-}: {
-  user: Usuario;
-  onClose: () => void;
-  onSuccess: (pwd: string) => void;
-}) {
-  const { resetPassword } = useUsuarioMutations();
-  const [loading, setLoading] = useState(false);
-
-  async function go() {
-    setLoading(true);
-    try {
-      const result = await resetPassword(user.id);
-      toast.success('Password reseteada');
-      onSuccess(result.password_temporal);
-    } catch (e) {
-      toast.error(apiErrorMessage(e, 'Error al resetear'));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Dialog open onClose={onClose} title="Resetear password" size="sm">
-      <p className="text-sm text-neutral-700">
-        ¿Generar una nueva password temporal para <strong>{user.email}</strong>? Todas sus
-        sesiones activas se van a cerrar.
-      </p>
-      <DialogFooter>
-        <Button variant="ghost" onClick={onClose} disabled={loading}>
-          Volver
-        </Button>
-        <Button onClick={go} loading={loading}>
-          <KeyRound className="h-4 w-4" />
-          Resetear
-        </Button>
-      </DialogFooter>
-    </Dialog>
   );
 }
 

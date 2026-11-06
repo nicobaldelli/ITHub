@@ -18,28 +18,32 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * ABM de usuarios (solo admin).
  *
- * - alta: admin define datos + password temporal (random o provista); el usuario
- *   creado siempre tiene must_change_password=true
- * - edición: cambia nombre / apellido / email / rol / activo (NO password)
- * - reset-password: genera nuevo password temporal, revoca todas las sesiones
- *   del usuario (refresh tokens) y fuerza must_change_password=true
+ * - alta: admin define nombre / apellido / email / rol. El email tiene que ser
+ *   del dominio de Workspace (google_login.hosted_domain): el unico login es
+ *   con Google, asi que un usuario de otro dominio nunca podria entrar. No se
+ *   genera ni se muestra password; password_hash queda con un valor aleatorio
+ *   inutilizable porque la columna es NOT NULL
+ * - edición: cambia nombre / apellido / email / rol / activo (mismo control de dominio)
  * - desactivar: marca activo=false (no borra, no soft delete)
  *
  * Auditoría:
- *  - crear, editar, eliminar (en realidad desactivar), reset_password,
- *    activar/desactivar
+ *  - crear, editar, eliminar (en realidad desactivar), activar/desactivar
  */
 final class UsuarioService
 {
     /** @var array<string,mixed> */
     private readonly array $secCfg;
 
+    /** Dominio de Workspace permitido para los emails de usuario (ej: intellihelp.tech) */
+    private readonly string $dominio;
+
     public function __construct(
         ContainerInterface $container,
-        private readonly AuthService $auth,
         private readonly AuditoriaService $audit
     ) {
-        $this->secCfg = $container->get('settings')['security'];
+        $settings = $container->get('settings');
+        $this->secCfg = $settings['security'];
+        $this->dominio = strtolower(trim((string) ($settings['google_login']['hosted_domain'] ?? '')));
     }
 
     /**
@@ -79,28 +83,19 @@ final class UsuarioService
 
     /**
      * @param array<string,mixed> $data
-     * @return array{user: User, password_temporal: string}
      */
-    public function create(array $data, User $actor, ServerRequestInterface $request): array
+    public function create(array $data, User $actor, ServerRequestInterface $request): User
     {
+        // El password no se acepta: el unico login es con Google
+        unset($data['password'], $data['password_hash']);
+
         $clean = UsuarioValidator::validate($data, isUpdate: false);
+        $this->validarDominio($clean['email']);
 
         if (User::where('email', $clean['email'])->exists()) {
             throw new ValidationException('Ya existe un usuario con ese email',
                 ['email' => 'duplicado']);
         }
-
-        // Password temporal: si vino en payload lo validamos, si no lo generamos.
-        $passwordTemporal = isset($data['password']) && is_string($data['password']) && $data['password'] !== ''
-            ? (string) $data['password']
-            : self::generarPasswordSegura();
-
-        $this->auth->validatePasswordStrength($passwordTemporal);
-
-        $clean['password_hash'] = password_hash($passwordTemporal, PASSWORD_BCRYPT,
-            ['cost' => $this->secCfg['bcrypt_cost']]);
-        $clean['must_change_password'] = true;
-        $clean['activo'] = $clean['activo'] ?? true;
 
         $user = new User();
         $user->fill([
@@ -108,16 +103,19 @@ final class UsuarioService
             'apellido' => $clean['apellido'],
             'email' => $clean['email'],
             'rol' => $clean['rol'],
-            'activo' => $clean['activo'],
-            'must_change_password' => true,
+            'activo' => $clean['activo'] ?? true,
+            'must_change_password' => false,
         ]);
-        $user->password_hash = $clean['password_hash'];
+        // Columna NOT NULL: hash de un valor aleatorio que nadie conoce. No hay
+        // endpoint que valide passwords, queda solo para cumplir el esquema.
+        $user->password_hash = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT,
+            ['cost' => $this->secCfg['bcrypt_cost']]);
         $user->save();
 
         $this->audit->log($actor->id, 'user', $user->id, Auditoria::ACCION_CREAR,
             ['email' => $user->email, 'rol' => $user->rol], $request);
 
-        return ['user' => $user->fresh(), 'password_temporal' => $passwordTemporal];
+        return $user->fresh();
     }
 
     /**
@@ -134,6 +132,7 @@ final class UsuarioService
 
         // Email único si cambia
         if (isset($clean['email']) && $clean['email'] !== $user->email) {
+            $this->validarDominio($clean['email']);
             if (User::where('email', $clean['email'])->where('id', '!=', $id)->exists()) {
                 throw new ValidationException('Ya existe otro usuario con ese email',
                     ['email' => 'duplicado']);
@@ -158,33 +157,6 @@ final class UsuarioService
             ['before' => $before, 'after' => $user->only(array_keys($clean))], $request);
 
         return $user->fresh();
-    }
-
-    /**
-     * Genera password temporal nueva, revoca sesiones y devuelve el plain text.
-     * @return array{user: User, password_temporal: string}
-     */
-    public function resetPassword(int $id, User $actor, ServerRequestInterface $request): array
-    {
-        $user = $this->findById($id);
-
-        $passwordTemporal = self::generarPasswordSegura();
-        $user->password_hash = password_hash($passwordTemporal, PASSWORD_BCRYPT,
-            ['cost' => $this->secCfg['bcrypt_cost']]);
-        $user->must_change_password = true;
-        $user->failed_login_attempts = 0;
-        $user->locked_until = null;
-        $user->save();
-
-        // Revocar TODAS las sesiones del user (refresh tokens activos)
-        RefreshToken::where('user_id', $user->id)
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => date('Y-m-d H:i:s')]);
-
-        $this->audit->log($actor->id, 'user', $user->id, Auditoria::ACCION_RESET_PASSWORD,
-            ['target_email' => $user->email], $request);
-
-        return ['user' => $user->fresh(), 'password_temporal' => $passwordTemporal];
     }
 
     public function desactivar(int $id, User $actor, ServerRequestInterface $request): User
@@ -231,27 +203,19 @@ final class UsuarioService
     // ============================================================
 
     /**
-     * Genera password aleatoria que cumple la política por defecto:
-     *  12-16 chars con upper + lower + dígito + símbolo.
+     * El unico login es con Google Workspace del dominio configurado: un email
+     * de otro dominio no podria entrar nunca, asi que no se deja cargar.
      */
-    private static function generarPasswordSegura(): string
+    private function validarDominio(string $email): void
     {
-        $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I,O confusas
-        $lower = 'abcdefghijkmnpqrstuvwxyz'; // sin l,o
-        $digit = '23456789'; // sin 0,1
-        $sym = '!@#$%&*+=?';
-
-        $chars = [
-            $upper[random_int(0, strlen($upper) - 1)],
-            $lower[random_int(0, strlen($lower) - 1)],
-            $digit[random_int(0, strlen($digit) - 1)],
-            $sym[random_int(0, strlen($sym) - 1)],
-        ];
-        $pool = $upper . $lower . $digit . $sym;
-        for ($i = 0; $i < 10; $i++) {
-            $chars[] = $pool[random_int(0, strlen($pool) - 1)];
+        if ($this->dominio === '') {
+            return;
         }
-        shuffle($chars);
-        return implode('', $chars);
+        if (!str_ends_with(strtolower($email), '@' . $this->dominio)) {
+            throw new ValidationException(
+                sprintf('El email tiene que ser una cuenta de Google Workspace @%s', $this->dominio),
+                ['email' => 'dominio']
+            );
+        }
     }
 }

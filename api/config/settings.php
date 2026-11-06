@@ -103,13 +103,9 @@ return [
         'hsts_max_age' => env_get('HSTS_MAX_AGE', 31536000, 'int'),
         'enable_hsts' => env_get('ENABLE_HSTS', true, 'bool'),
         'admin_ip_allowlist' => env_get('ADMIN_IP_ALLOWLIST', [], 'array'),
+        // Solo para el hash aleatorio de password_hash (columna NOT NULL). No hay
+        // login con password: el unico acceso es con Google Workspace.
         'bcrypt_cost' => 12,
-        // Política de password
-        'password_min_length' => 12,
-        'password_require_upper' => true,
-        'password_require_lower' => true,
-        'password_require_digit' => true,
-        'password_require_symbol' => true,
     ],
 
     'ratelimit' => [
@@ -117,8 +113,6 @@ return [
         'login_per_email' => [5, 900],     // 5 / 15 min
         'login_per_ip' => [20, 900],
         'refresh_per_ip' => [20, 60],
-        'change_password' => [5, 900],
-        'reset_password' => [10, 3600],
         'import' => [10, 3600],
         'general_per_user' => [120, 60],
     ],

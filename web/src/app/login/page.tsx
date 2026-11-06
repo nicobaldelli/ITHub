@@ -3,10 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { LogIn, Lock, Mail } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { GoogleSignInButton, googleLoginHabilitado } from '@/components/auth/GoogleSignInButton';
 
@@ -44,39 +41,24 @@ function destinoSeguro(next: string | null): string {
   return next;
 }
 
+const DOMINIO = process.env.NEXT_PUBLIC_GOOGLE_HOSTED_DOMAIN || 'intellihelp.tech';
+
+/**
+ * El único acceso es con Google Workspace del dominio de la empresa. No hay
+ * formulario de email y password: la API no tiene login con password.
+ */
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loginGoogle } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { loginGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
-
-  function entrar(res: { user: { nombre: string; must_change_password: boolean } }) {
-    toast.success(`Bienvenido, ${res.user.nombre}`);
-    router.push(
-      res.user.must_change_password
-        ? '/cambiar-password'
-        : destinoSeguro(searchParams?.get('next') ?? null),
-    );
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      entrar(await login(email, password));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function onGoogle(credential: string) {
     setLoading(true);
     try {
-      entrar(await loginGoogle(credential));
+      const res = await loginGoogle(credential);
+      toast.success(`Bienvenido, ${res.user.nombre}`);
+      router.push(destinoSeguro(searchParams?.get('next') ?? null));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión con Google');
     } finally {
@@ -96,59 +78,24 @@ function LoginInner() {
           <p className="mt-1 text-sm text-neutral-500">Gestión de facturas de venta</p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-5 rounded-xl bg-white p-8 shadow-card">
-          {googleLoginHabilitado && (
+        <div className="space-y-5 rounded-xl bg-white p-8 shadow-card">
+          {googleLoginHabilitado ? (
             <>
+              <p className="text-center text-sm text-neutral-600">
+                Ingresá con tu cuenta de Google <strong>@{DOMINIO}</strong>
+              </p>
               <GoogleSignInButton onCredential={onGoogle} disabled={loading} />
-              <div className="flex items-center gap-3 text-xs text-neutral-400">
-                <span className="h-px flex-1 bg-neutral-200" />
-                o con email y password
-                <span className="h-px flex-1 bg-neutral-200" />
-              </div>
             </>
+          ) : (
+            <p className="text-center text-sm text-danger">
+              El acceso con Google no está configurado. Contactá a tu administrador.
+            </p>
           )}
 
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="tu@empresa.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <Button type="submit" loading={loading} className="w-full" size="lg">
-            Iniciar sesión
-          </Button>
-
           <p className="text-center text-xs text-neutral-400">
-            ¿Problemas para acceder? Contactá a tu administrador.
+            ¿Problemas para acceder? Pedile a tu administrador que te dé de alta con tu email @{DOMINIO}.
           </p>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,7 @@
 'use client';
 
-import { KeyRound, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useState } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
@@ -42,14 +41,6 @@ export function Topbar({ title }: { title?: string }) {
               open ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
           >
-            <Link
-              href="/cambiar-password"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50"
-            >
-              <KeyRound className="h-4 w-4" />
-              Cambiar password
-            </Link>
             <button
               onClick={logout}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"

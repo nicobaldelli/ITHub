@@ -134,15 +134,10 @@ SEED_ADMIN_EMAIL=nbaldelli@intellihelp.tech SEED_ADMIN_NOMBRE=Nicolas SEED_ADMIN
   vendor/bin/phinx seed:run -c db/phinx.php
 ```
 
-⚠️ El seed **imprime la password temporal del admin una sola vez**. Anotala.
-Si no pasás `SEED_ADMIN_EMAIL`, el admin se crea como `admin@intellihelp.tech`.
-
-Si la perdiste (o te bloqueaste con 5 intentos fallidos), no hace falta tocar
-la base: el script genera otra temporal y desbloquea la cuenta:
-
-```bash
-php scripts/reset_password.php nbaldelli@intellihelp.tech
-```
+El único login es con Google Workspace, así que `SEED_ADMIN_EMAIL` tiene que
+ser una cuenta del dominio. El seed no genera password: ese admin entra con
+"Iniciar sesión con Google" una vez hecho el paso C2b. Si no pasás
+`SEED_ADMIN_EMAIL`, el admin se crea como `admin@intellihelp.tech`.
 
 Verificación:
 
@@ -249,9 +244,9 @@ ssh -p <SSH_PORT> <SSH_USER>@<SSH_HOST> 'ls -a ~/domains/ithub.intellihelp.tech/
 ## B4. Probar
 
 Browser: `https://ithub.intellihelp.tech` → pantalla de login.
-Login con el email del seed (`nbaldelli@intellihelp.tech` si pasaste
-`SEED_ADMIN_EMAIL` en A5) + password temporal → te va a forzar cambio de
-password → dashboard.
+Botón "Iniciar sesión con Google" con la cuenta del seed
+(`nbaldelli@intellihelp.tech` si pasaste `SEED_ADMIN_EMAIL` en A5) → dashboard.
+Requiere el paso C2b hecho: sin client id nadie puede entrar.
 
 Probar también `https://ithub.intellihelp.tech/loquesea/` → debe mostrar la
 página 404 de la app (no la de Apache/LiteSpeed).
@@ -302,7 +297,7 @@ chmod 0600 ~/domains/apithub.intellihelp.tech/app/api/storage/credentials/servic
 
 Y en la app: `/configuracion` → `drive_root_folder_id`.
 
-## C2b. Login con Google (opcional)
+## C2b. Login con Google (obligatorio: es el único login)
 
 Guía completa en `docs/google-login-setup.md`. Resumen:
 
@@ -325,8 +320,8 @@ botón "Enviar recordatorios" (pide confirmación).
 | # | Test |
 |---|---|
 | 1 | `curl https://apithub.intellihelp.tech/api/v1/health` → ok |
-| 2 | Login + cambio de password forzado |
-| 2b | (si C2b) Botón "Iniciar sesión con Google" entra con cuenta @intellihelp.tech dada de alta |
+| 2 | Botón "Iniciar sesión con Google" entra con cuenta @intellihelp.tech dada de alta; no hay formulario de password |
+| 2b | Cuenta @gmail.com o de Workspace no dada de alta → rechazada con mensaje |
 | 3 | F5 estando logueado → sesión persiste (y navegar atrás/adelante también) |
 | 4 | Crear cliente (CUIT válido) |
 | 5 | Crear servicio mantenimiento con template |

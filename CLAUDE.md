@@ -33,11 +33,12 @@
 
 ## 🔒 Seguridad — decisiones tomadas
 
-- bcrypt cost 12, JWT HS256 con refresh rotation y detección de reuso
+- JWT HS256 con refresh rotation y detección de reuso
 - Access token solo en memoria (no localStorage)
 - Refresh en cookie HttpOnly + SameSite=Strict, scoped a `/api/v1/auth`
 - CORS con whitelist estricta, headers Strict-Transport-Security + CSP + COOP
-- Rate limit: login 5/15min email + 20/15min IP, general 120/min
+- **Login solo con Google Workspace (@intellihelp.tech).** Sin login con password, sin cambio ni reset de password. Usuarios dados de alta en /usuarios solo con email del dominio. Ver `docs/google-login-setup.md`
+- Rate limit: /auth/google 20/15min IP, general 120/min
 - Mass assignment whitelist con `$fillable` en todos los modelos
 - Auditoría de toda acción sensible (con IP + request_id + diff before/after)
 - 2 usuarios MySQL: runtime con privilegios mínimos + migrate solo via SSH
