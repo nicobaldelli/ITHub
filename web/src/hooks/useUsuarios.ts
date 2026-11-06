@@ -54,6 +54,31 @@ export function useUsuarios(filters: UsuariosFilters) {
   return { data, meta, loading, error, reload };
 }
 
+/**
+ * Lista de usuarios para selects (ej: filtro "creado por"). Solo pide al
+ * backend cuando `enabled` es true: la ruta es exclusiva de admin.
+ */
+export function useUsuariosOpciones(enabled: boolean) {
+  const [data, setData] = useState<Usuario[]>([]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setData([]);
+      return;
+    }
+    let canceled = false;
+    api
+      .get<ApiSuccess<Usuario[]>>('/usuarios?per_page=100')
+      .then((res) => !canceled && setData(res.data.data))
+      .catch(() => !canceled && setData([]));
+    return () => {
+      canceled = true;
+    };
+  }, [enabled]);
+
+  return data;
+}
+
 export function useUsuario(id: number | null) {
   const [data, setData] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);

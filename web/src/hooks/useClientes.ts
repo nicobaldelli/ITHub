@@ -9,11 +9,44 @@ import type { ClienteFormData } from '@/lib/cliente-schema';
 
 export interface ClientesFilters {
   search?: string;
+  razon_social?: string;
+  cuit?: string;
+  cuit_pais?: string;
+  tipo_default?: string;
+  direccion?: string;
+  banco?: string;
+  alias?: string;
+  cbu?: string;
+  mail?: string;
+  contacto?: string;
+  telefono?: string;
+  observaciones?: string;
+  plazo_desde?: string;
+  plazo_hasta?: string;
   activo?: boolean | '';
+  con_facturas?: '' | 'true' | 'false';
+  alta_desde?: string;
+  alta_hasta?: string;
+  modificado_desde?: string;
+  modificado_hasta?: string;
   page?: number;
   per_page?: number;
   sort_by?: string;
   sort_dir?: 'asc' | 'desc';
+}
+
+/** Query string a partir de los filtros; omite vacíos para no mandar ruido al backend. */
+export function buildClientesQuery(filters: ClientesFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v === undefined || v === '' || v === null) return;
+    if (k === 'activo') {
+      params.set('activo', v ? 'true' : 'false');
+      return;
+    }
+    params.set(k, String(v));
+  });
+  return params.toString();
 }
 
 export function useClientes(filters: ClientesFilters) {
@@ -22,23 +55,17 @@ export function useClientes(filters: ClientesFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // La query string se calcula fuera del efecto: es un string, así que sirve
+  // como dependencia estable aunque el objeto `filters` cambie de identidad.
+  const query = buildClientesQuery(filters);
+
   useEffect(() => {
     let canceled = false;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
-    if (filters.search) params.set('search', filters.search);
-    if (filters.activo !== undefined && filters.activo !== '') {
-      params.set('activo', filters.activo ? 'true' : 'false');
-    }
-    if (filters.page) params.set('page', String(filters.page));
-    if (filters.per_page) params.set('per_page', String(filters.per_page));
-    if (filters.sort_by) params.set('sort_by', filters.sort_by);
-    if (filters.sort_dir) params.set('sort_dir', filters.sort_dir);
-
     api
-      .get<ApiSuccess<Cliente[]>>(`/clientes?${params.toString()}`)
+      .get<ApiSuccess<Cliente[]>>(`/clientes?${query}`)
       .then((res) => {
         if (canceled) return;
         setData(res.data.data);
@@ -50,14 +77,7 @@ export function useClientes(filters: ClientesFilters) {
     return () => {
       canceled = true;
     };
-  }, [
-    filters.search,
-    filters.activo,
-    filters.page,
-    filters.per_page,
-    filters.sort_by,
-    filters.sort_dir,
-  ]);
+  }, [query]);
 
   return { data, meta, loading, error };
 }
@@ -135,6 +155,34 @@ export function useClientesActivos() {
 
     api
       .get<ApiSuccess<Cliente[]>>('/clientes?activo=true&per_page=500&sort_by=razon_social&sort_dir=asc')
+      .then((res) => !canceled && setData(res.data.data))
+      .catch((e) => !canceled && setError(apiErrorMessage(e, 'Error cargando clientes')))
+      .finally(() => !canceled && setLoading(false));
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  return { data, loading, error };
+}
+
+/**
+ * Carga TODOS los clientes (activos e inactivos) para selects de filtros,
+ * ordenados por razón social. Sin paginación.
+ */
+export function useClientesTodos() {
+  const [data, setData] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let canceled = false;
+    setLoading(true);
+    setError(null);
+
+    api
+      .get<ApiSuccess<Cliente[]>>('/clientes?per_page=500&sort_by=razon_social&sort_dir=asc')
       .then((res) => !canceled && setData(res.data.data))
       .catch((e) => !canceled && setError(apiErrorMessage(e, 'Error cargando clientes')))
       .finally(() => !canceled && setLoading(false));

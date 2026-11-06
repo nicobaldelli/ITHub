@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess, ApiMeta } from '@/types/api';
-import type { Servicio, TipoServicio, EstadoServicio } from '@/types/servicio';
+import type { Servicio, TipoServicio, EstadoServicio, ModoFacturacion } from '@/types/servicio';
 import type { Moneda } from '@/types/factura';
+
+export type FiltroBool = '' | 'true' | 'false';
 
 export interface ServiciosFilters {
   search?: string;
@@ -12,10 +14,40 @@ export interface ServiciosFilters {
   tipo?: TipoServicio | '';
   estado?: EstadoServicio | '';
   moneda?: Moneda | '';
+  modo_facturacion?: ModoFacturacion | '';
+  tipo_factura_default?: string;
+  iva_porcentaje?: string;
+  nombre?: string;
+  descripcion?: string;
+  observaciones?: string;
+  dia_facturacion?: string;
+  intervalo_dias?: string;
+  frecuencia_ajuste_meses?: string;
+  created_by?: number | '';
+  inicio_desde?: string;
+  inicio_hasta?: string;
+  fin_desde?: string;
+  fin_hasta?: string;
+  creado_desde?: string;
+  creado_hasta?: string;
+  importe_min?: string;
+  importe_max?: string;
+  indefinido?: FiltroBool;
+  con_ajuste?: FiltroBool;
+  con_cuotas_pendientes?: FiltroBool;
   page?: number;
   per_page?: number;
   sort_by?: string;
   sort_dir?: 'asc' | 'desc';
+}
+
+export function buildServiciosQuery(filters: ServiciosFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v === undefined || v === '' || v === false || v === null) return;
+    params.set(k, String(v));
+  });
+  return params.toString();
 }
 
 export function useServicios(filters: ServiciosFilters) {
@@ -25,12 +57,7 @@ export function useServicios(filters: ServiciosFilters) {
   const [error, setError] = useState<string | null>(null);
 
   // Query string como dependencia estable (ver useFacturas)
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([k, v]) => {
-    if (v === undefined || v === '' || v === false) return;
-    params.set(k, String(v));
-  });
-  const query = params.toString();
+  const query = buildServiciosQuery(filters);
 
   useEffect(() => {
     let canceled = false;

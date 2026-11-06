@@ -5,26 +5,60 @@ import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess, ApiMeta } from '@/types/api';
 import type { Factura } from '@/types/factura';
 
+export type FiltroBool = '' | 'true' | 'false';
+
 export interface FacturasFilters {
   search?: string;
   cliente_id?: number | '';
   tipo?: string;
   moneda?: 'ARS' | 'USD' | '';
   estado?: string;
+  numero_factura?: string;
+  cuit?: string;
+  detalle?: string;
+  observaciones?: string;
+  mes_cubierto?: string;
+  numero_mes?: string;
+  banco?: string;
+  mail?: string;
+  contacto?: string;
+  created_by?: number | '';
+  origen?: '' | 'servicio' | 'manual';
   fecha_desde?: string;
   fecha_hasta?: string;
-  cobrado?: '' | 'true' | 'false';
+  vencimiento_desde?: string;
+  vencimiento_hasta?: string;
+  pago_desde?: string;
+  pago_hasta?: string;
+  envio_desde?: string;
+  envio_hasta?: string;
+  creada_desde?: string;
+  creada_hasta?: string;
+  importe_min?: string;
+  importe_max?: string;
+  importe_con_iva_min?: string;
+  importe_con_iva_max?: string;
+  cobrado_min?: string;
+  cobrado_max?: string;
+  plazo_desde?: string;
+  plazo_hasta?: string;
+  cobrado?: FiltroBool;
+  con_retenciones?: FiltroBool;
+  con_pago?: FiltroBool;
+  enviada?: FiltroBool;
+  con_tdc?: FiltroBool;
   vencidas?: boolean;
+  por_vencer_dias?: string;
   page?: number;
   per_page?: number;
   sort_by?: string;
   sort_dir?: 'asc' | 'desc';
 }
 
-function buildQuery(filters: FacturasFilters): string {
+export function buildFacturasQuery(filters: FacturasFilters): string {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => {
-    if (v === undefined || v === '' || v === false) return;
+    if (v === undefined || v === '' || v === false || v === null) return;
     params.set(k, String(v));
   });
   return params.toString();
@@ -38,7 +72,7 @@ export function useFacturas(filters: FacturasFilters) {
 
   // La query string se calcula fuera del efecto: es un string, así que sirve
   // como dependencia estable aunque el objeto `filters` cambie de identidad.
-  const query = buildQuery(filters);
+  const query = buildFacturasQuery(filters);
 
   useEffect(() => {
     let canceled = false;
