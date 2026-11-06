@@ -91,19 +91,12 @@ Accesos por defecto:
 - MySQL: `localhost:3306` (user: `ithub`, pass: ver `.env`)
 - Adminer (gestor DB): <http://localhost:8081>
 
-Credenciales iniciales (cambiar en primer login):
-- email: `admin@intellihelp.tech`
-- password: ver salida del seed (random + bcrypt; se muestra una sola vez)
-
-¿La perdiste o te bloqueaste? Resetea y desbloquea sin tocar la base:
-
-```bash
-docker compose exec api php scripts/reset_password.php admin@intellihelp.tech
-```
-
-Los usuarios se crean en `/usuarios` (email + password). Opcionalmente se puede
-habilitar "Iniciar sesión con Google" solo para cuentas Workspace de
-`intellihelp.tech` ya dadas de alta: ver `docs/google-login-setup.md`.
+Acceso: el **único login es con Google Workspace** (`@intellihelp.tech`). No
+hay login con password. El seed crea el admin con `SEED_ADMIN_EMAIL` (tiene que
+ser una cuenta del dominio) y el resto de los usuarios se dan de alta en
+`/usuarios` con su email de Workspace. Configuración del client id y pruebas en
+`docs/google-login-setup.md`. Para desarrollo local hace falta un client id con
+el origen `http://localhost:3000` autorizado.
 
 ---
 

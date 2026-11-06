@@ -187,7 +187,6 @@ return [
     // ============================================================
     UsuarioService::class => fn (ContainerInterface $c) => new UsuarioService(
         $c,
-        $c->get(AuthService::class),
         $c->get(AuditoriaService::class)
     ),
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, apiErrorMessage } from '@/lib/api';
 import type { ApiSuccess, ApiMeta, Rol } from '@/types/api';
-import type { Usuario, UsuarioConPassword } from '@/types/usuario';
+import type { Usuario } from '@/types/usuario';
 import type { UsuarioCreateData, UsuarioUpdateData } from '@/lib/usuario-schema';
 
 export interface UsuariosFilters {
@@ -84,28 +84,20 @@ export function useUsuario(id: number | null) {
 }
 
 export function useUsuarioMutations() {
-  const create = useCallback(async (data: UsuarioCreateData): Promise<UsuarioConPassword> => {
-    const payload: Record<string, unknown> = {
+  const create = useCallback(async (data: UsuarioCreateData): Promise<Usuario> => {
+    const payload = {
       nombre: data.nombre,
       apellido: data.apellido,
       email: data.email,
       rol: data.rol,
       activo: data.activo ?? true,
     };
-    if (data.password && data.password.trim() !== '') {
-      payload.password = data.password;
-    }
-    const res = await api.post<ApiSuccess<UsuarioConPassword>>('/usuarios', payload);
-    return res.data.data;
+    const res = await api.post<ApiSuccess<{ user: Usuario }>>('/usuarios', payload);
+    return res.data.data.user;
   }, []);
 
   const update = useCallback(async (id: number, data: UsuarioUpdateData): Promise<Usuario> => {
     const res = await api.put<ApiSuccess<Usuario>>(`/usuarios/${id}`, data);
-    return res.data.data;
-  }, []);
-
-  const resetPassword = useCallback(async (id: number): Promise<UsuarioConPassword> => {
-    const res = await api.post<ApiSuccess<UsuarioConPassword>>(`/usuarios/${id}/reset-password`);
     return res.data.data;
   }, []);
 
@@ -119,5 +111,5 @@ export function useUsuarioMutations() {
     return res.data.data;
   }, []);
 
-  return { create, update, resetPassword, desactivar, activar };
+  return { create, update, desactivar, activar };
 }

@@ -24,10 +24,10 @@ Operadores del sistema. Roles fijos: `admin`, `cobranzas`, `ventas`, `visualizad
 | `nombre` | `varchar(100)` | NO | | |
 | `apellido` | `varchar(100)` | NO | | |
 | `email` | `varchar(150)` | NO | | **único** (`uq_users_email`) |
-| `password_hash` | `varchar(255)` | NO | | bcrypt cost 12 |
+| `password_hash` | `varchar(255)` | NO | | bcrypt de un valor aleatorio; no hay login con password |
 | `rol` | `enum(admin, cobranzas, ventas, visualizador)` | NO | | idx |
 | `activo` | `boolean` | NO | `true` | idx |
-| `must_change_password` | `boolean` | NO | `false` | |
+| `must_change_password` | `boolean` | NO | `false` | sin uso desde el login solo con Google |
 | `failed_login_attempts` | `int` | NO | `0` | lockout 5 intentos |
 | `locked_until` | `datetime` | SÍ | NULL | |
 | `last_login` | `datetime` | SÍ | NULL | |
