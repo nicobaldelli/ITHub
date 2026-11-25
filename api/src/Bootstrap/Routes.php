@@ -20,7 +20,6 @@ use ITHub\Api\Controllers\HealthController;
 use ITHub\Api\Controllers\ServiciosController;
 use ITHub\Api\Controllers\UsuariosController;
 use ITHub\Api\Middleware\JwtAuthMiddleware;
-use ITHub\Api\Middleware\MustChangePasswordMiddleware;
 use ITHub\Api\Middleware\RateLimitMiddleware;
 use ITHub\Api\Middleware\RoleMiddleware;
 use Psr\Http\Message\ResponseInterface;
@@ -52,9 +51,20 @@ final class Routes
         // AUTH (rutas públicas con rate limit estricto)
         // ============================================================
         $app->group('/auth', function (RouteCollectorProxy $g): void {
-            $g->post('/login', [AuthController::class, 'login'])
-                ->add(new RateLimitMiddleware('login'));
-            // Mismo perfil de rate limit que el login (por IP; no hay email en el body)
+            // Con qué se ingresa (lo consulta la pantalla de ingreso)
+            $g->get('/metodos', [AuthController::class, 'metodos']);
+
+            // Ingreso con ITHub (sesión única). login/callback son navegaciones
+            // del navegador; el aviso de cierre lo manda ITHub por detrás.
+            // (perfil general por IP: el de login permite muy pocos y una oficina
+            // comparte IP; cada ingreso pasa dos veces por acá)
+            $g->get('/ithub/login', [AuthController::class, 'ithubLogin'])
+                ->add(new RateLimitMiddleware('general'));
+            $g->get('/ithub/callback', [AuthController::class, 'ithubCallback'])
+                ->add(new RateLimitMiddleware('general'));
+            $g->post('/ithub/logout', [AuthController::class, 'ithubAvisoCierre']);
+
+            // Login con Google Workspace (solo sin ITHub). Rate limit por IP (no hay email en el body)
             $g->post('/google', [AuthController::class, 'google'])
                 ->add(new RateLimitMiddleware('login'));
             $g->post('/refresh', [AuthController::class, 'refresh'])
@@ -63,9 +73,6 @@ final class Routes
 
             // Rutas autenticadas
             $g->get('/me', [AuthController::class, 'me'])
-                ->add(JwtAuthMiddleware::class);
-            $g->post('/change-password', [AuthController::class, 'changePassword'])
-                ->add(new RateLimitMiddleware('change_password'))
                 ->add(JwtAuthMiddleware::class);
             $g->post('/logout-all', [AuthController::class, 'logoutAll'])
                 ->add(JwtAuthMiddleware::class);
@@ -186,8 +193,6 @@ final class Routes
                 ->add(new RoleMiddleware(['admin']));
             $g->put('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'update'])
                 ->add(new RoleMiddleware(['admin']));
-            $g->post('/usuarios/{id:[0-9]+}/reset-password', [UsuariosController::class, 'resetPassword'])
-                ->add(new RoleMiddleware(['admin']));
             $g->patch('/usuarios/{id:[0-9]+}/activar', [UsuariosController::class, 'activar'])
                 ->add(new RoleMiddleware(['admin']));
             $g->delete('/usuarios/{id:[0-9]+}', [UsuariosController::class, 'destroy'])
@@ -228,8 +233,7 @@ final class Routes
             $g->post('/admin/cron/diario', [CronController::class, 'diario'])
                 ->add(new RoleMiddleware(['admin']));
         })
-            // Orden de ejecución (LIFO): JwtAuth → RateLimit → MustChangePassword → ruta
-            ->add(MustChangePasswordMiddleware::class)
+            // Orden de ejecución (LIFO): JwtAuth → RateLimit → ruta
             ->add(new RateLimitMiddleware('general'))
             ->add(JwtAuthMiddleware::class);
 

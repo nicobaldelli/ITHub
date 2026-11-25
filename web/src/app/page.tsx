@@ -15,7 +15,7 @@ export default function HomeRedirect() {
     (async () => {
       const user = await hydrate();
       if (user) {
-        router.replace(user.must_change_password ? '/cambiar-password' : '/dashboard');
+        router.replace('/dashboard');
       } else {
         router.replace('/login');
       }

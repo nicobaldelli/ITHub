@@ -54,24 +54,35 @@ Este documento describe las medidas de seguridad aplicadas en ITHub y cómo se m
 - Se transmite en **cookie HttpOnly + Secure + SameSite=Strict**, host-only (sin `Domain`, queda scoped a `apithub.intellihelp.tech`), `Path=/api/v1/auth`. La cookie CSRF (no-HttpOnly) sí lleva `Domain=.intellihelp.tech` para que el frontend en `ithub.intellihelp.tech` pueda leerla
 
 ### 2.5 Lockout / fuerza bruta
-- **5 intentos fallidos** por email en 15 min → bloqueo temporal del email
-- **20 intentos fallidos** por IP en 15 min → bloqueo de IP
-- Registro de cada intento fallido en `auditoria` con acción `login_fallido`
-- Respuestas genéricas: "Credenciales inválidas" (no se distingue entre email inexistente y password incorrecto)
-- Delay constante de ~200ms en respuesta de login para mitigar timing attacks
+- No hay login con password, así que no hay credenciales que adivinar contra la API: la autenticación la hace Google
+- `POST /auth/google` tiene rate limit de 20 intentos por IP cada 15 min
+- Registro de cada intento rechazado en `auditoria` con acción `login_fallido` y el motivo
+- Una cuenta con `locked_until` vigente no entra (se puede usar para bloquear a alguien a mano)
 
-### 2.6 Cambio forzado de password
-- El usuario admin del seed inicial tiene flag `must_change_password = true`
-- Al login: si flag activo, frontend redirige a `/cambiar-password` sin acceso al resto de la app
-- Backend: `MustChangePasswordMiddleware` bloquea todas las rutas protegidas (401 `MUST_CHANGE_PASSWORD`) mientras el flag esté activo; solo quedan accesibles `/auth/*`. Así no se puede usar la API por curl con la password temporal
+### 2.6 Sin passwords
+- No existen `/auth/login` con password, `/auth/change-password` ni `/usuarios/{id}/reset-password`: se sacaron junto con la pantalla `/cambiar-password` y el script `reset_password.php`
+- Alta de usuarios solo con email del dominio de Workspace (`GOOGLE_OAUTH_HOSTED_DOMAIN`); la API rechaza otros dominios
+- `password_hash` sigue en la tabla por ser NOT NULL, pero se llena con el hash de un valor aleatorio y ningún endpoint lo valida
+- `must_change_password` queda en la tabla sin uso (siempre `false`)
 
-### 2.6b Login con Google (opcional)
-- Flujo de ID token de Google Identity Services (popup, sin redirect, sin client secret). Endpoint `POST /auth/google`, mismo rate limit que `/auth/login`
+### 2.6b Login con Google (único login)
+- Flujo de ID token de Google Identity Services (popup, sin redirect, sin client secret). Endpoint `POST /auth/google`
 - La API verifica el token con `google/apiclient` (firma contra las claves públicas de Google, `exp`, `aud` = nuestro client id) y después exige: `email_verified`, `hd` **y** sufijo del email iguales al dominio configurado, usuario **existente y activo** en ITHub, sin lockout vigente. Nunca auto-registra
-- Si pasa, abre exactamente la misma sesión que el login con password (`AuthService::abrirSesion`): access en memoria, refresh en cookie HttpOnly, CSRF, auditoría con `via: google`
+- Si pasa, abre la sesión (`AuthService::abrirSesion`): access en memoria, refresh en cookie HttpOnly, CSRF, auditoría con `via: google`
 - Pantalla de consentimiento **Interna** en Google Cloud como segunda barrera (solo cuentas de la organización)
-- Deshabilitado por default: sin `GOOGLE_OAUTH_CLIENT_ID` el endpoint responde `GOOGLE_LOGIN_DISABLED` y el front no muestra el botón
+- Sin `GOOGLE_OAUTH_CLIENT_ID` el endpoint responde `GOOGLE_LOGIN_DISABLED` y **nadie puede entrar** (no hay camino alternativo)
 - Detalle en `docs/google-login-setup.md`
+
+### 2.6c Ingreso con ITHub (sesión única, si está configurado)
+- Con `ITHUB_CLIENT_ID` + `ITHUB_CLIENT_SECRET` el ingreso es por ITHub (OpenID Connect, código + PKCE S256) y `POST /auth/google` queda apagado. Sin esas variables, todo sigue como en 2.6b
+- Todo el flujo es server-side en la API: el canje del código (con el secreto, que vive solo en `api/.env` del servidor) y la validación del id_token. El frontend no ve tokens de ITHub
+- id_token y logout_token: RS256 con la clave del `kid` de `/oauth/jwks` (caché 1 h, se vuelve a bajar si el kid no está), `iss`, `aud` = `facturacion`, `exp` (60 s de tolerancia) y `nonce`; el logout_token exige el evento de back-channel logout y que no traiga nonce. Algoritmos distintos de RS256 se rechazan (sin confusión HS256/none)
+- `state`, `nonce` y verificador PKCE viajan en la cookie `ithub_oidc` (HttpOnly, Secure, `SameSite=Lax` porque la vuelta puede venir de Google vía ITHub, firmada con HMAC derivado de `JWT_SECRET`, 10 min, de un solo uso, `Path=/api/v1/auth/ithub`)
+- `next` solo acepta rutas internas (sin esquema, host, `//` ni barra invertida): no hay open redirect
+- ITHub decide el acceso y el rol (claim `rol`, uno de los 4 de la app). El usuario se crea en el primer ingreso; si existía, se le aplica el rol y se reactiva; todo queda en auditoría (`origen: ithub`)
+- Back-channel logout: `POST /auth/ithub/logout` revoca los refresh de las sesiones con ese `sid` y las marca cerradas en `ithub_sesiones`; el access token lleva el `sid` y `JwtAuthMiddleware` lo rechaza en el pedido siguiente. Es la única ruta que acepta form-urlencoded (`JsonBodyMiddleware`): no usa cookies, la autentica la firma
+- Con ITHub activo, las sesiones abiertas antes por Google no se renuevan (`ITHUB_REQUERIDO`): ITHub no podría cerrarlas
+- Detalle en `docs/ithub-login-setup.md`
 
 ### 2.7 2FA TOTP (Fase 3)
 - Tabla `users_2fa` opcional (no incluida en MVP)
@@ -174,10 +185,9 @@ Implementado con `RateLimitMiddleware` (cache en `storage/ratelimit/` con tokens
 
 | Endpoint | Clave | Límite |
 |---|---|---|
-| `POST /auth/login` | IP + email | 5 / 15 min por email, 20 / 15 min por IP |
+| `POST /auth/google` | IP | 20 / 15 min |
 | `POST /auth/refresh` | IP | 20 / min |
-| `POST /auth/change-password` | user_id | 5 / 15 min |
-| `POST /usuarios/{id}/reset-password` | user_id (caller) | 10 / h |
+| `GET /auth/ithub/login` y `/callback` | IP | 120 / min (perfil general: una oficina comparte IP) |
 | `POST /facturas/import/*` | user_id | 10 / h |
 | Resto autenticado | user_id | 120 / min |
 

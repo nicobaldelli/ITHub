@@ -18,6 +18,14 @@ final class JsonBodyMiddleware implements MiddlewareInterface
 {
     private const METHODS_WITH_BODY = ['POST', 'PUT', 'PATCH'];
 
+    /**
+     * Única excepción: el aviso de cierre de ITHub (back-channel logout) llega
+     * server-to-server como form-urlencoded, por estándar. No usa cookies ni
+     * sesión del navegador (lo autentica la firma del logout_token), así que
+     * no abre la puerta al CSRF que este middleware bloquea.
+     */
+    private const FORM_PERMITIDO = '/auth/ithub/logout';
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $method = $request->getMethod();
@@ -29,7 +37,10 @@ final class JsonBodyMiddleware implements MiddlewareInterface
             $isMultipart = str_starts_with($contentType, 'multipart/form-data');
             $isJson = str_starts_with($contentType, 'application/json');
 
-            if (!$isJson && !$isMultipart) {
+            $isForm = str_starts_with($contentType, 'application/x-www-form-urlencoded')
+                && str_ends_with($request->getUri()->getPath(), self::FORM_PERMITIDO);
+
+            if (!$isJson && !$isMultipart && !$isForm) {
                 // Tolerancia: si el body está vacío y no hay content-type, lo dejamos pasar
                 $body = (string) $request->getBody();
                 $request->getBody()->rewind();

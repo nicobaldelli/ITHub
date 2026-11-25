@@ -33,6 +33,7 @@ final class TestSchema
         'servicio_cuotas',
         'servicio_ajustes',
         'notificaciones_enviadas',
+        'ithub_sesiones',
     ];
 
     public static function create(Builder $schema): void
@@ -229,6 +230,17 @@ final class TestSchema
             $t->string('user_agent', 255)->nullable();
             $t->string('ip', 45)->nullable();
             $t->dateTime('created_at');
+            $t->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+        });
+
+        $schema->create('ithub_sesiones', function (Blueprint $t): void {
+            $t->char('family_id', 36)->primary();
+            $t->unsignedBigInteger('user_id');
+            $t->string('sid', 128)->index('idx_ithub_sid');
+            $t->string('sub', 64)->index('idx_ithub_sub');
+            $t->text('id_token');
+            $t->dateTime('created_at');
+            $t->dateTime('cerrada_en')->nullable();
             $t->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
         });
 

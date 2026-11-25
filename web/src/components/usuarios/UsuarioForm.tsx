@@ -14,6 +14,7 @@ import {
   rolLabel,
   type UsuarioCreateData,
   type UsuarioUpdateData,
+  DOMINIO_USUARIOS,
 } from '@/lib/usuario-schema';
 import type { Usuario } from '@/types/usuario';
 
@@ -46,7 +47,6 @@ export function UsuarioForm({
       email: initial?.email ?? '',
       rol: initial?.rol ?? 'visualizador',
       activo: initial?.activo ?? true,
-      password: '',
     },
   });
 
@@ -113,22 +113,13 @@ export function UsuarioForm({
                 </p>
               )}
             </Field>
-          ) : (
-            <Field
-              label="Password temporal"
-              hint="Dejar vacío para que el sistema genere una aleatoria"
-              error={(errors as Record<string, { message?: string } | undefined>).password?.message}
-            >
-              <Input type="text" autoComplete="off" {...register('password')} />
-            </Field>
-          )}
+          ) : null}
         </div>
 
         {!isUpdate && (
           <p className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
-            El usuario va a estar marcado con <code>must_change_password=true</code>. En su
-            primer login se le va a pedir cambiar la password. Vas a ver la password temporal
-            una sola vez después de crear el usuario.
+            El usuario entra con su cuenta de Google <strong>@{DOMINIO_USUARIOS}</strong>, con el
+            mismo email que cargues acá. No tiene password.
           </p>
         )}
       </Card>

@@ -29,7 +29,6 @@ export interface User {
   email: string;
   rol: Rol;
   activo: boolean;
-  must_change_password: boolean;
   last_login: string | null;
 }
 
@@ -39,7 +38,6 @@ export interface LoginResponse {
   access_expires_at: number;
   token_type: 'Bearer';
   csrf_token: string;
-  must_change_password: boolean;
 }
 
 export interface RefreshResponse {

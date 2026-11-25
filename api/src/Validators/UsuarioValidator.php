@@ -9,8 +9,8 @@ use ITHub\Api\Models\User;
 
 /**
  * Valida y normaliza el payload de creación/edición de usuarios.
- * La validación de password (complejidad) NO se hace acá; se delega a
- * AuthService::validatePasswordStrength cuando el flujo lo requiere.
+ * No hay password: el unico login es con Google Workspace. El control de que
+ * el email sea del dominio lo hace UsuarioService (depende de la config).
  */
 final class UsuarioValidator
 {

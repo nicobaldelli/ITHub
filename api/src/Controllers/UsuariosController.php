@@ -49,12 +49,8 @@ final class UsuariosController
         $actor = $request->getAttribute('user');
         $body = (array) $request->getParsedBody();
 
-        $result = $this->service->create($body, $actor, $request);
-        return ResponseFactory::json($response, [
-            'user' => $result['user'],
-            'password_temporal' => $result['password_temporal'],
-            'must_change_password' => true,
-        ], 201);
+        $u = $this->service->create($body, $actor, $request);
+        return ResponseFactory::json($response, ['user' => $u], 201);
     }
 
     public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -64,17 +60,6 @@ final class UsuariosController
         $body = (array) $request->getParsedBody();
         $u = $this->service->update((int) $args['id'], $body, $actor, $request);
         return ResponseFactory::json($response, $u);
-    }
-
-    public function resetPassword(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
-    {
-        /** @var User $actor */
-        $actor = $request->getAttribute('user');
-        $result = $this->service->resetPassword((int) $args['id'], $actor, $request);
-        return ResponseFactory::json($response, [
-            'user' => $result['user'],
-            'password_temporal' => $result['password_temporal'],
-        ]);
     }
 
     public function activar(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface

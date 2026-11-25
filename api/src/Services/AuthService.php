@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace ITHub\Api\Services;
 
 use ITHub\Api\Exceptions\AuthException;
-use ITHub\Api\Exceptions\ValidationException;
 use ITHub\Api\Models\Auditoria;
+use ITHub\Api\Models\IthubSesion;
 use ITHub\Api\Models\RefreshToken;
 use ITHub\Api\Models\User;
 use Psr\Container\ContainerInterface;
@@ -18,87 +18,20 @@ use Ramsey\Uuid\Uuid;
  * Lógica de autenticación y sesiones.
  *
  * Garantías de seguridad implementadas:
- *  - bcrypt cost 12 con rehash automático
- *  - lockout por email y por IP
+ *  - el ingreso es con ITHub (sesión única, OpenID Connect) si está
+ *    configurado; si no, con Google Workspace (ID token verificado, dominio
+ *    restringido, usuario existente y activo). No hay login con password
  *  - refresh token rotation con detección de reuso (revoca toda la familia)
- *  - delay constante en login fallido para mitigar timing attacks
- *  - política de complejidad de password en cambios
  *  - registro en auditoría de todo evento sensible
  */
 final class AuthService
 {
-    /** @var array<string,mixed> */
-    private readonly array $secCfg;
-
-    /** @var int Constant time delay sobre login en ms */
-    private const LOGIN_CONSTANT_DELAY_MS = 200;
-
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly JwtService $jwt,
         private readonly AuditoriaService $audit,
         private readonly LoggerInterface $logger
     ) {
-        $this->secCfg = $container->get('settings')['security'];
-    }
-
-    // ============================================================
-    // LOGIN
-    // ============================================================
-
-    /**
-     * Autentica al usuario por email+password.
-     * Devuelve el User + tokens (access + refresh).
-     *
-     * @return array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int}
-     */
-    public function login(string $email, string $password, ServerRequestInterface $request): array
-    {
-        $startMs = (int) (microtime(true) * 1000);
-
-        $email = strtolower(trim($email));
-        $user = User::where('email', $email)->first();
-
-        // Si existe, validar lockout antes de la verificación de password
-        if ($user !== null && $user->isLocked()) {
-            $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN_FALLIDO,
-                ['reason' => 'locked'], $request);
-            $this->equalizeTiming($startMs);
-            throw new AuthException('Cuenta bloqueada temporalmente. Probá más tarde.', 'ACCOUNT_LOCKED');
-        }
-
-        // password_verify es constant-time
-        $valid = $user !== null && password_verify($password, $user->password_hash);
-
-        if (!$valid) {
-            if ($user !== null) {
-                $this->registerFailedAttempt($user);
-                $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN_FALLIDO,
-                    ['reason' => 'bad_password'], $request);
-            } else {
-                // No revelamos si el email existe. Logueamos sin user_id.
-                $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
-                    ['reason' => 'unknown_email', 'email_hash' => hash('sha256', $email)], $request);
-            }
-            $this->equalizeTiming($startMs);
-            throw new AuthException('Credenciales inválidas', 'INVALID_CREDENTIALS');
-        }
-
-        if (!$user->activo) {
-            $this->equalizeTiming($startMs);
-            throw new AuthException('Usuario inactivo', 'USER_INACTIVE');
-        }
-
-        // Rehash si bcrypt cost cambió
-        if (password_needs_rehash($user->password_hash, PASSWORD_BCRYPT, ['cost' => $this->secCfg['bcrypt_cost']])) {
-            $user->password_hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => $this->secCfg['bcrypt_cost']]);
-        }
-
-        $sesion = $this->abrirSesion($user, $request, ['via' => 'password']);
-
-        $this->equalizeTiming($startMs);
-
-        return $sesion;
     }
 
     // ============================================================
@@ -119,6 +52,12 @@ final class AuthService
      */
     public function loginConGoogle(string $idToken, ServerRequestInterface $request): array
     {
+        // Con ITHub configurado la identidad la decide ITHub: entrar por
+        // Google directo saltearía sus permisos y su cierre de sesión.
+        if ($this->ithub()->habilitado()) {
+            throw new AuthException('El ingreso es con ITHub', 'GOOGLE_LOGIN_DISABLED');
+        }
+
         $cfg = $this->container->get('settings')['google_login'] ?? [];
         $dominio = strtolower((string) ($cfg['hosted_domain'] ?? ''));
         if (($cfg['client_id'] ?? '') === '' || $dominio === '') {
@@ -169,15 +108,141 @@ final class AuthService
         return $this->abrirSesion($user, $request, ['via' => 'google', 'google_sub' => $g['sub']]);
     }
 
+    // ============================================================
+    // INGRESO CON ITHUB (sesión única de Intellihelp)
+    // ============================================================
+
+    /**
+     * Abre la sesión con la identidad de un id_token de ITHub ya validado
+     * (firma, emisor, destinatario, vencimiento y nonce: ItHubOidcClient).
+     *
+     * ITHub es quien decide el acceso: si la persona no tiene permiso para
+     * Facturación ITHub ni emite el token. Por eso acá:
+     *  - el rol se toma del claim `rol` y se aplica en cada ingreso (tiene que
+     *    ser uno de los de la app; si no, no entra)
+     *  - si el email no existe en `users` se crea el usuario, y si estaba
+     *    inactivo se reactiva (queda auditado)
+     *  - la familia de refresh queda asociada al `sid` de ITHub para poder
+     *    cerrarla cuando ITHub avise el cierre (cerrarSesionItHub)
+     *
+     * @param array<string,mixed> $claims
+     * @return array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int}
+     */
+    public function loginConItHub(array $claims, string $idToken, ServerRequestInterface $request): array
+    {
+        $email = strtolower(trim((string) ($claims['email'] ?? '')));
+        $rol = (string) ($claims['rol'] ?? '');
+        $sid = (string) ($claims['sid'] ?? '');
+        $sub = (string) ($claims['sub'] ?? '');
+
+        if ($email === '' || $sid === '' || $sub === '' || ($claims['email_verified'] ?? true) === false) {
+            $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'ithub_claims_incompletos', 'via' => 'ithub'], $request);
+            throw new AuthException('ITHub no mandó los datos de la cuenta', 'ITHUB_CLAIMS');
+        }
+        if (!in_array($rol, User::ROLES, true)) {
+            $this->audit->log(null, 'user', null, Auditoria::ACCION_LOGIN_FALLIDO,
+                ['reason' => 'ithub_rol_desconocido', 'via' => 'ithub', 'rol' => $rol, 'email_hash' => hash('sha256', $email)], $request);
+            throw new AuthException('Tu rol en ITHub no es uno de Facturación', 'ITHUB_ROL');
+        }
+
+        $user = User::where('email', $email)->first();
+        if ($user === null) {
+            [$nombre, $apellido] = $this->nombreYApellido($claims, $email);
+            $user = new User();
+            $user->fill([
+                'nombre' => $nombre,
+                'apellido' => $apellido,
+                'email' => $email,
+                'rol' => $rol,
+                'activo' => true,
+                'must_change_password' => false,
+            ]);
+            // Columna NOT NULL sin uso: no hay login con password
+            $user->password_hash = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT,
+                ['cost' => $this->container->get('settings')['security']['bcrypt_cost']]);
+            $user->save();
+            $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_CREAR,
+                ['origen' => 'ithub', 'rol' => $rol], $request);
+        } elseif ($user->rol !== $rol || !$user->activo) {
+            $antes = ['rol' => $user->rol, 'activo' => (bool) $user->activo];
+            $user->rol = $rol;
+            $user->activo = true;
+            $user->save();
+            $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_EDITAR,
+                ['origen' => 'ithub', 'antes' => $antes, 'despues' => ['rol' => $rol, 'activo' => true]], $request);
+        }
+
+        return $this->abrirSesion($user, $request, ['via' => 'ithub', 'ithub_sub' => $sub],
+            ['sid' => $sid, 'sub' => $sub, 'id_token' => $idToken]);
+    }
+
+    /**
+     * Aviso de cierre de ITHub (back-channel logout): cierra todas las
+     * sesiones abiertas con ese `sid` (o, si el aviso no trae sid, todas las
+     * de esa persona en ITHub). Revoca sus refresh y marca la sesión cerrada,
+     * con lo que JwtAuthMiddleware rechaza también los access vigentes.
+     *
+     * @return int cantidad de sesiones cerradas
+     */
+    public function cerrarSesionItHub(string $sid, string $sub, ServerRequestInterface $request): int
+    {
+        $q = IthubSesion::whereNull('cerrada_en');
+        $sid !== '' ? $q->where('sid', $sid) : $q->where('sub', $sub);
+        $sesiones = $q->get();
+
+        $ahora = date('Y-m-d H:i:s');
+        foreach ($sesiones as $s) {
+            $s->cerrada_en = $ahora;
+            $s->save();
+            RefreshToken::where('family_id', $s->family_id)
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => $ahora]);
+            $this->audit->log($s->user_id, 'user', $s->user_id, Auditoria::ACCION_LOGOUT,
+                ['via' => 'ithub_aviso_cierre'], $request);
+        }
+        return $sesiones->count();
+    }
+
+    /** Cliente de ITHub (lazy: solo lo necesitan los flujos de ingreso). */
+    private function ithub(): ItHubOidcClient
+    {
+        return $this->container->get(ItHubOidcClient::class);
+    }
+
+    /**
+     * Nombre y apellido para un usuario nuevo: given_name/family_name si ITHub
+     * los manda; si no, se parte `name` en la primera palabra y el resto.
+     *
+     * @param array<string,mixed> $claims
+     * @return array{0:string,1:string}
+     */
+    private function nombreYApellido(array $claims, string $email): array
+    {
+        $nombre = trim((string) ($claims['given_name'] ?? ''));
+        $apellido = trim((string) ($claims['family_name'] ?? ''));
+        if ($nombre === '') {
+            $partes = preg_split('/\s+/', trim((string) ($claims['name'] ?? ''))) ?: [];
+            $nombre = (string) array_shift($partes);
+            $apellido = $apellido !== '' ? $apellido : implode(' ', $partes);
+        }
+        if ($nombre === '') {
+            $nombre = strstr($email, '@', true) ?: $email;
+        }
+        return [mb_substr($nombre, 0, 100), mb_substr($apellido, 0, 100)];
+    }
+
     /**
      * Lo que tienen en común todos los logins una vez que la identidad está
      * probada: reset del lockout, last_login, emisión de access + refresh y
-     * auditoría.
+     * auditoría. Con $ithub (sid, sub, id_token) la familia de refresh queda
+     * asociada a la sesión de ITHub.
      *
      * @param array<string,mixed> $auditExtra
+     * @param array{sid:string, sub:string, id_token:string}|null $ithub
      * @return array{user: User, access_token: string, access_expires_at: int, refresh_token: string, refresh_expires_at: int}
      */
-    private function abrirSesion(User $user, ServerRequestInterface $request, array $auditExtra): array
+    private function abrirSesion(User $user, ServerRequestInterface $request, array $auditExtra, ?array $ithub = null): array
     {
         $user->failed_login_attempts = 0;
         $user->locked_until = null;
@@ -185,8 +250,19 @@ final class AuthService
         $user->last_login_ip = $this->audit->clientIp($request);
         $user->save();
 
-        $access = $this->jwt->issueAccessToken($user);
+        $access = $this->jwt->issueAccessToken($user, $ithub['sid'] ?? null);
         $refresh = $this->issueRefreshToken($user, familyId: null, request: $request);
+
+        if ($ithub !== null) {
+            IthubSesion::create([
+                'family_id' => $refresh['family_id'],
+                'user_id' => $user->id,
+                'sid' => $ithub['sid'],
+                'sub' => $ithub['sub'],
+                'id_token' => $ithub['id_token'],
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
 
         $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_LOGIN, $auditExtra, $request);
 
@@ -216,6 +292,19 @@ final class AuthService
 
         if ($existing === null) {
             throw new AuthException('Refresh token inválido', 'REFRESH_INVALID');
+        }
+
+        // Familias nacidas de un ingreso por ITHub. Va antes del chequeo de
+        // reuso: un refresh revocado por el aviso de cierre de ITHub no es un
+        // robo, es una sesión cerrada.
+        $ithubSesion = IthubSesion::find($existing->family_id);
+        if ($ithubSesion !== null && $ithubSesion->estaCerrada()) {
+            throw new AuthException('La sesión se cerró en ITHub. Volvé a ingresar.', 'ITHUB_SESION_CERRADA');
+        }
+        // Con ITHub configurado, las sesiones abiertas antes por Google no se
+        // renuevan: ITHub no podría cerrarlas. Se vuelve a entrar por ITHub.
+        if ($ithubSesion === null && $this->ithub()->habilitado()) {
+            throw new AuthException('El ingreso ahora es con ITHub. Volvé a ingresar.', 'ITHUB_REQUERIDO');
         }
 
         // Si el token fue revocado, es reuso → invalidar toda la familia
@@ -256,7 +345,7 @@ final class AuthService
         $existing->replaced_by_id = $newRefresh['id'];
         $existing->save();
 
-        $access = $this->jwt->issueAccessToken($user);
+        $access = $this->jwt->issueAccessToken($user, $ithubSesion?->sid);
 
         return [
             'user' => $user,
@@ -271,7 +360,12 @@ final class AuthService
     // LOGOUT
     // ============================================================
 
-    public function logout(string $rawRefresh, ServerRequestInterface $request): void
+    /**
+     * Revoca el refresh actual. Si la sesión se abrió con ITHub devuelve su
+     * id_token, para que la salida cierre también la sesión única
+     * (AuthController arma la dirección de /oauth/logout de ITHub).
+     */
+    public function logout(string $rawRefresh, ServerRequestInterface $request): ?string
     {
         $hash = $this->jwt->hashRefreshToken($rawRefresh);
         $token = RefreshToken::where('token_hash', $hash)->first();
@@ -281,6 +375,8 @@ final class AuthService
             $token->save();
             $this->audit->log($token->user_id, 'user', $token->user_id, Auditoria::ACCION_LOGOUT, [], $request);
         }
+
+        return $token !== null ? IthubSesion::find($token->family_id)?->id_token : null;
     }
 
     public function logoutAll(User $user, ServerRequestInterface $request): int
@@ -296,55 +392,13 @@ final class AuthService
     }
 
     // ============================================================
-    // CHANGE PASSWORD
-    // ============================================================
-
-    /**
-     * Cambia el password del usuario. Si current_password está vacío (cambio forzado por
-     * must_change_password=true), no se valida el actual.
-     */
-    public function changePassword(
-        User $user,
-        ?string $currentPassword,
-        string $newPassword,
-        ServerRequestInterface $request
-    ): void {
-        // Si NO está en must_change_password, hay que verificar el password actual
-        if (!$user->must_change_password) {
-            if ($currentPassword === null || !password_verify($currentPassword, $user->password_hash)) {
-                throw new AuthException('Password actual incorrecto', 'INVALID_CURRENT_PASSWORD');
-            }
-        }
-
-        $this->validatePasswordStrength($newPassword);
-
-        // No permitir reusar el mismo password
-        if (password_verify($newPassword, $user->password_hash)) {
-            throw new ValidationException('El nuevo password no puede ser igual al anterior',
-                ['new_password' => 'debe ser distinto al actual']);
-        }
-
-        $user->password_hash = password_hash($newPassword, PASSWORD_BCRYPT,
-            ['cost' => $this->secCfg['bcrypt_cost']]);
-        $user->must_change_password = false;
-        $user->save();
-
-        // Revocar todos los refresh tokens existentes (forzar relogin en otros devices)
-        RefreshToken::where('user_id', $user->id)
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => date('Y-m-d H:i:s')]);
-
-        $this->audit->log($user->id, 'user', $user->id, Auditoria::ACCION_CAMBIO_PASSWORD, [], $request);
-    }
-
-    // ============================================================
     // PRIVADOS
     // ============================================================
 
     /**
      * Crea un refresh token nuevo, lo persiste hasheado y devuelve el raw.
      *
-     * @return array{token: string, hash: string, expires_at: int, id: int}
+     * @return array{token: string, hash: string, expires_at: int, id: int, family_id: string}
      */
     private function issueRefreshToken(User $user, ?string $familyId, ServerRequestInterface $request): array
     {
@@ -367,60 +421,7 @@ final class AuthService
             'hash' => $gen['hash'],
             'expires_at' => $gen['expires_at'],
             'id' => (int) $record->id,
+            'family_id' => $family,
         ];
-    }
-
-    private function registerFailedAttempt(User $user): void
-    {
-        $user->failed_login_attempts = (int) $user->failed_login_attempts + 1;
-
-        // 5 intentos fallidos en ventana corta → lockout de 15 minutos
-        if ($user->failed_login_attempts >= 5) {
-            $user->locked_until = date('Y-m-d H:i:s', time() + 900);
-        }
-        $user->save();
-    }
-
-    /**
-     * Valida que el password cumpla la política de complejidad.
-     * @throws ValidationException
-     */
-    public function validatePasswordStrength(string $password): void
-    {
-        $errors = [];
-
-        if (mb_strlen($password) < $this->secCfg['password_min_length']) {
-            $errors[] = sprintf('Debe tener al menos %d caracteres', $this->secCfg['password_min_length']);
-        }
-        if ($this->secCfg['password_require_upper'] && !preg_match('/[A-Z]/u', $password)) {
-            $errors[] = 'Debe incluir al menos una letra mayúscula';
-        }
-        if ($this->secCfg['password_require_lower'] && !preg_match('/[a-z]/u', $password)) {
-            $errors[] = 'Debe incluir al menos una letra minúscula';
-        }
-        if ($this->secCfg['password_require_digit'] && !preg_match('/\d/u', $password)) {
-            $errors[] = 'Debe incluir al menos un dígito';
-        }
-        if ($this->secCfg['password_require_symbol'] && !preg_match('/[^A-Za-z0-9]/u', $password)) {
-            $errors[] = 'Debe incluir al menos un símbolo';
-        }
-
-        if (!empty($errors)) {
-            throw new ValidationException('Password no cumple la política de seguridad',
-                ['password' => $errors]);
-        }
-    }
-
-    /**
-     * Asegura que la respuesta de login tarde un tiempo similar tenga éxito o no.
-     * Mitiga timing attacks que distinguen entre email inexistente vs password incorrecto.
-     */
-    private function equalizeTiming(int $startMs): void
-    {
-        $elapsed = (int) (microtime(true) * 1000) - $startMs;
-        $target = self::LOGIN_CONSTANT_DELAY_MS;
-        if ($elapsed < $target) {
-            usleep(($target - $elapsed) * 1000);
-        }
     }
 }

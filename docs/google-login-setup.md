@@ -1,8 +1,9 @@
 # Login con Google (Workspace, solo @intellihelp.tech)
 
-ITHub permite entrar con la cuenta de Google Workspace además del email +
-password. Es opcional: si no se configura el client id, el botón no aparece
-y todo sigue funcionando con password.
+El **único** acceso a ITHub es con la cuenta de Google Workspace del dominio.
+No existe login con email + password (se sacaron el endpoint, el formulario,
+el cambio de password y el reset). Sin client id configurado **nadie puede
+entrar**: la pantalla de login muestra que el acceso no está configurado.
 
 ## Cómo funciona
 
@@ -22,17 +23,22 @@ y todo sigue funcionando con password.
      que siempre. Si no existe, el mensaje le dice que pida el alta.
    - respeta el lockout: una cuenta bloqueada por intentos fallidos tampoco
      entra por Google.
-5. Si pasa, abre la misma sesión que el login con password (access token en
-   memoria + refresh en cookie HttpOnly + CSRF). Nada cambia después del
-   login.
+5. Si pasa, abre la sesión (access token en memoria + refresh en cookie
+   HttpOnly + CSRF), igual que siempre.
 
 No se usa client secret ni se pide ningún permiso sobre Drive, Gmail, etc.:
 solo identidad (email + nombre). No hay costo: Google Identity Services es
 gratis para cualquier cantidad de usuarios.
 
-El login con password sigue disponible como camino de emergencia (por
-ejemplo si Google está caído o hay que entrar con un usuario que no es de
-Workspace). Para resetear una password: `php scripts/reset_password.php`.
+Los usuarios se dan de alta en `/usuarios` solo con email `@intellihelp.tech`
+(la API rechaza otros dominios). No se genera ni se muestra password: la
+columna `password_hash` queda con un hash de un valor aleatorio solo porque es
+NOT NULL.
+
+**Sin camino de emergencia por password.** Si Google no responde o el client id
+se rompe, no se puede entrar hasta resolverlo. Para recuperar el acceso de un
+admin alcanza con que su usuario esté activo en la tabla `users` con el email
+de Workspace correcto (y `locked_until` en NULL).
 
 ## Configuración en Google Cloud (una vez, ~10 minutos)
 
@@ -104,11 +110,10 @@ se endurece la CSP, mantener esas entradas o el botón deja de renderizar
 
 ## Prueba
 
-1. Abrir `https://ithub.intellihelp.tech/login`: debe aparecer el botón
-   "Iniciar sesión con Google" arriba del formulario.
+1. Abrir `https://ithub.intellihelp.tech/login`: debe aparecer solo el botón
+   "Iniciar sesión con Google" (no hay formulario de email y password).
 2. Con un usuario que **existe** en ITHub con su email de Workspace: entra y
-   cae en el dashboard (o en cambio de password si tenía
-   `must_change_password`).
+   cae en el dashboard.
 3. Con una cuenta @gmail.com: Google ya filtra por `hd` en el selector, y si
    igual llega un token, la API responde `GOOGLE_DOMAIN`.
 4. Con una cuenta de Workspace que **no** está en `/usuarios`: mensaje
@@ -131,8 +136,8 @@ En `/auditoria` cada login queda con `via: google`, y los rechazos como
 | API responde `GOOGLE_TOKEN_INVALID` | Client id distinto entre front y API, o el servidor no puede llegar a `www.googleapis.com` para bajar las claves públicas |
 | `GOOGLE_USER_NOT_FOUND` | El email de Google no coincide exactamente con el del usuario en ITHub |
 
-## Desactivar
+## Cortar el acceso
 
-Vaciar `GOOGLE_OAUTH_CLIENT_ID` en la API (el endpoint pasa a responder
-`GOOGLE_LOGIN_DISABLED` al instante) y, para que desaparezca el botón,
-rebuild del front sin `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+Vaciar `GOOGLE_OAUTH_CLIENT_ID` en la API corta el acceso de **todos** al
+instante (`GOOGLE_LOGIN_DISABLED`). Para sacar a una sola persona, desactivarla
+en `/usuarios`.

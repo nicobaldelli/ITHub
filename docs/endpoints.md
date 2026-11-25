@@ -34,12 +34,14 @@ Salvo aclaración, todo lo no-auth requiere JWT válido y aplica `general` rate 
 
 | Método | Path | Auth | Roles | Rate | Descripción |
 |---|---|---|---|---|---|
-| POST | `/auth/login` | No | — | `login` | Email + password → access JWT + cookie refresh |
-| POST | `/auth/google` | No | — | `login` | `{credential}` (ID token de Google) → misma respuesta que login. Solo cuentas Workspace del dominio y usuarios ya existentes. Errores: `GOOGLE_LOGIN_DISABLED`, `GOOGLE_TOKEN_INVALID`, `GOOGLE_EMAIL_UNVERIFIED`, `GOOGLE_DOMAIN`, `GOOGLE_USER_NOT_FOUND`, `USER_INACTIVE`, `ACCOUNT_LOCKED` |
-| POST | `/auth/refresh` | Cookie | — | `refresh` | Rota refresh y devuelve nuevo access |
-| POST | `/auth/logout` | Cookie | — | — | Revoca el refresh actual |
+| GET | `/auth/metodos` | No | — | — | Con qué se ingresa: `{ithub: bool, google: bool}`. Lo consulta la pantalla de ingreso |
+| GET | `/auth/ithub/login` | No | — | `general` | Redirige a ITHub (OpenID Connect, código + PKCE S256). `?next=/ruta` interna para volver. Ver `docs/ithub-login-setup.md` |
+| GET | `/auth/ithub/callback` | No | — | `general` | Vuelta de ITHub: valida `state`, canjea el código, valida el id_token, aplica el rol del claim `rol`, setea las cookies y redirige al frontend. Si falla, redirige a `/login/?aviso=<motivo>` |
+| POST | `/auth/ithub/logout` | No (firma del `logout_token`) | — | — | Aviso de cierre de ITHub (back-channel logout, form-urlencoded). 200 si se procesó, 400 si el token no es válido |
+| POST | `/auth/google` | No | — | `login` | **Solo sin ITHub configurado** (con ITHub responde `GOOGLE_LOGIN_DISABLED`). `{credential}` (ID token de Google) → access JWT + cookie refresh. Solo cuentas Workspace del dominio y usuarios ya existentes. Errores: `GOOGLE_LOGIN_DISABLED`, `GOOGLE_TOKEN_INVALID`, `GOOGLE_EMAIL_UNVERIFIED`, `GOOGLE_DOMAIN`, `GOOGLE_USER_NOT_FOUND`, `USER_INACTIVE`, `ACCOUNT_LOCKED` |
+| POST | `/auth/refresh` | Cookie | — | `refresh` | Rota refresh y devuelve nuevo access. Con ITHub: `ITHUB_SESION_CERRADA` si ITHub avisó el cierre, `ITHUB_REQUERIDO` para sesiones abiertas antes por Google |
+| POST | `/auth/logout` | Cookie | — | — | Revoca el refresh actual. Con ITHub responde 200 con `{logout_url}` (salida de la sesión única); sin ITHub, 204 |
 | GET | `/auth/me` | JWT | todos | — | Perfil del usuario |
-| POST | `/auth/change-password` | JWT | todos | `change_password` | Cambia password (requiere actual) |
 | POST | `/auth/logout-all` | JWT | todos | — | Revoca toda la familia de refresh tokens del user |
 
 ---
@@ -176,7 +178,6 @@ Endpoints del spec original que **todavía no existen** en el router:
 - `GET /users` — listado (admin)
 - `POST /users` — alta (admin)
 - `PUT /users/{id}` — edición (admin)
-- `POST /users/{id}/reset-password` — fuerza must_change_password (admin)
 - `DELETE /users/{id}` — desactivar (admin)
 
 ### Auditoría

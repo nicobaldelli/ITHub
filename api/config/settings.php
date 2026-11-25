@@ -103,13 +103,9 @@ return [
         'hsts_max_age' => env_get('HSTS_MAX_AGE', 31536000, 'int'),
         'enable_hsts' => env_get('ENABLE_HSTS', true, 'bool'),
         'admin_ip_allowlist' => env_get('ADMIN_IP_ALLOWLIST', [], 'array'),
+        // Solo para el hash aleatorio de password_hash (columna NOT NULL). No hay
+        // login con password: el unico acceso es con Google Workspace.
         'bcrypt_cost' => 12,
-        // Política de password
-        'password_min_length' => 12,
-        'password_require_upper' => true,
-        'password_require_lower' => true,
-        'password_require_digit' => true,
-        'password_require_symbol' => true,
     ],
 
     'ratelimit' => [
@@ -117,8 +113,6 @@ return [
         'login_per_email' => [5, 900],     // 5 / 15 min
         'login_per_ip' => [20, 900],
         'refresh_per_ip' => [20, 60],
-        'change_password' => [5, 900],
-        'reset_password' => [10, 3600],
         'import' => [10, 3600],
         'general_per_user' => [120, 60],
     ],
@@ -149,6 +143,26 @@ return [
     'google_login' => [
         'client_id' => env_get('GOOGLE_OAUTH_CLIENT_ID', ''),
         'hosted_domain' => env_get('GOOGLE_OAUTH_HOSTED_DOMAIN', 'intellihelp.tech'),
+    ],
+
+    // Ingreso con ITHub (sesión única de Intellihelp, OpenID Connect). Con
+    // client_id y client_secret el ingreso pasa por ITHub y /auth/google queda
+    // apagado; sin ellos sigue el login con Google de siempre. El secreto vive
+    // solo en api/.env del servidor (ver docs/ithub-login-setup.md).
+    'ithub' => [
+        'issuer' => rtrim((string) env_get('ITHUB_ISSUER', 'https://ithub.intellihelp.tech'), '/'),
+        'client_id' => env_get('ITHUB_CLIENT_ID', ''),
+        'client_secret' => env_get('ITHUB_CLIENT_SECRET', ''),
+        // Callback de la API registrado en ITHub (coincidencia exacta)
+        'redirect_uri' => env_get(
+            'ITHUB_REDIRECT_URI',
+            rtrim(env_required('APP_URL'), '/') . '/api/v1/auth/ithub/callback'
+        ),
+        // Adónde vuelve ITHub después de cerrar la sesión (registrada en ITHub)
+        'post_logout_uri' => env_get(
+            'ITHUB_POST_LOGOUT_URI',
+            rtrim(env_required('FRONTEND_URL'), '/') . '/login/'
+        ),
     ],
 
     'smtp' => [

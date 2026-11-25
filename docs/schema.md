@@ -24,10 +24,10 @@ Operadores del sistema. Roles fijos: `admin`, `cobranzas`, `ventas`, `visualizad
 | `nombre` | `varchar(100)` | NO | | |
 | `apellido` | `varchar(100)` | NO | | |
 | `email` | `varchar(150)` | NO | | **único** (`uq_users_email`) |
-| `password_hash` | `varchar(255)` | NO | | bcrypt cost 12 |
+| `password_hash` | `varchar(255)` | NO | | bcrypt de un valor aleatorio; no hay login con password |
 | `rol` | `enum(admin, cobranzas, ventas, visualizador)` | NO | | idx |
 | `activo` | `boolean` | NO | `true` | idx |
-| `must_change_password` | `boolean` | NO | `false` | |
+| `must_change_password` | `boolean` | NO | `false` | sin uso desde el login solo con Google |
 | `failed_login_attempts` | `int` | NO | `0` | lockout 5 intentos |
 | `locked_until` | `datetime` | SÍ | NULL | |
 | `last_login` | `datetime` | SÍ | NULL | |
@@ -185,6 +185,22 @@ Refresh JWT rotativos con detección de reuso (familia de tokens).
 | `ip` | `varchar(45)` | SÍ | |
 | `created_at` | `datetime` | NO | |
 
+## 7b. `ithub_sesiones`
+
+Sesiones abiertas con el ingreso de ITHub: una por familia de refresh tokens.
+Sirve para cerrar la sesión cuando ITHub avisa (back-channel logout) y para
+salir de ITHub sin confirmación (`id_token_hint`).
+
+| Columna | Tipo | Null | Notas |
+|---|---|---|---|
+| `family_id` | `char(36)` | NO | PK, `refresh_tokens.family_id` |
+| `user_id` | `bigint unsigned` | NO | FK → `users.id` CASCADE |
+| `sid` | `varchar(128)` | NO | sid de la sesión de ITHub (idx) |
+| `sub` | `varchar(64)` | NO | id de la persona en ITHub (idx) |
+| `id_token` | `text` | NO | último id_token de ITHub de esa sesión |
+| `created_at` | `datetime` | NO | |
+| `cerrada_en` | `datetime` | SÍ | ITHub avisó el cierre |
+
 ---
 
 ## 8. `servicios`
@@ -273,7 +289,8 @@ users ─┬─< facturas_venta.created_by / updated_by / check_cobranza_user_id
        ├─< factura_archivos.uploaded_by
        ├─< auditoria.user_id
        ├─< config_app.updated_by
-       └─< refresh_tokens.user_id
+       ├─< refresh_tokens.user_id
+       └─< ithub_sesiones.user_id
 
 clientes ──< facturas_venta.cliente_id
          └──< servicios.cliente_id

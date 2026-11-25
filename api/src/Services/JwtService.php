@@ -30,9 +30,11 @@ final class JwtService
     }
 
     /**
+     * @param string|null $ithubSid sid de la sesión de ITHub si se entró por
+     *        ITHub: JwtAuthMiddleware rechaza el token si esa sesión se cerró
      * @return array{token: string, expires_at: int, jti: string}
      */
-    public function issueAccessToken(User $user): array
+    public function issueAccessToken(User $user, ?string $ithubSid = null): array
     {
         $now = time();
         $ttl = $this->jwtCfg['access_ttl'];
@@ -48,6 +50,9 @@ final class JwtService
             'jti' => $jti,
             'rol' => $user->rol,
         ];
+        if ($ithubSid !== null && $ithubSid !== '') {
+            $payload['sid'] = $ithubSid;
+        }
 
         $token = JWT::encode($payload, $this->jwtCfg['secret'], $this->jwtCfg['algo']);
 

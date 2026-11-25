@@ -9,6 +9,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Firebase\JWT\SignatureInvalidException;
 use ITHub\Api\Exceptions\AuthException;
+use ITHub\Api\Models\IthubSesion;
 use ITHub\Api\Models\User;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,6 +24,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  *  - issuer y audience esperados
  *  - exp/nbf
  *  - que el usuario exista y esté activo
+ *  - si se entró por ITHub (claim `sid`), que ITHub no haya avisado el
+ *    cierre de esa sesión (back-channel logout)
  */
 final class JwtAuthMiddleware implements MiddlewareInterface
 {
@@ -68,6 +71,13 @@ final class JwtAuthMiddleware implements MiddlewareInterface
         $user = User::find($userId);
         if ($user === null || !$user->activo) {
             throw new AuthException('Usuario inválido o inactivo', 'USER_INACTIVE');
+        }
+
+        // Sesión de ITHub cerrada por detrás: el access token deja de servir
+        // ya, sin esperar a que venza (el refresh de esa familia ya está revocado)
+        $sid = isset($decoded->sid) ? (string) $decoded->sid : '';
+        if ($sid !== '' && IthubSesion::where('sid', $sid)->whereNotNull('cerrada_en')->exists()) {
+            throw new AuthException('La sesión se cerró en ITHub', 'ITHUB_SESION_CERRADA');
         }
 
         $request = $request

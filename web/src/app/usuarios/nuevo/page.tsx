@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -9,7 +8,6 @@ import { apiErrorMessage } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { UsuarioForm } from '@/components/usuarios/UsuarioForm';
-import { PasswordTemporalModal } from '@/components/usuarios/PasswordTemporalModal';
 import { useUsuarioMutations } from '@/hooks/useUsuarios';
 import { useAuthStore } from '@/stores/auth';
 import type { UsuarioCreateData, UsuarioUpdateData } from '@/lib/usuario-schema';
@@ -18,7 +16,6 @@ export default function NuevoUsuarioPage() {
   const router = useRouter();
   const { create } = useUsuarioMutations();
   const yo = useAuthStore((s) => s.user);
-  const [modal, setModal] = useState<null | { email: string; password: string }>(null);
 
   if (yo && yo.rol !== 'admin') {
     return (
@@ -32,9 +29,9 @@ export default function NuevoUsuarioPage() {
 
   async function onSubmit(data: UsuarioCreateData | UsuarioUpdateData) {
     try {
-      const result = await create(data as UsuarioCreateData);
-      toast.success('Usuario creado');
-      setModal({ email: result.user.email, password: result.password_temporal });
+      const u = await create(data as UsuarioCreateData);
+      toast.success(`Usuario creado. ${u.email} ya puede entrar con Google.`);
+      router.push('/usuarios');
     } catch (e) {
       toast.error(apiErrorMessage(e, 'No se pudo crear'));
     }
@@ -52,16 +49,6 @@ export default function NuevoUsuarioPage() {
       </div>
 
       <UsuarioForm onSubmit={onSubmit} onCancel={() => router.push('/usuarios')} />
-
-      {modal && (
-        <PasswordTemporalModal
-          open
-          email={modal.email}
-          password={modal.password}
-          title="Usuario creado"
-          onClose={() => router.push('/usuarios')}
-        />
-      )}
     </AppShell>
   );
 }

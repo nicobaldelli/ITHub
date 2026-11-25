@@ -6,7 +6,6 @@ namespace ITHub\Api\Tests\Integration;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use ITHub\Api\Exceptions\AuthException;
-use ITHub\Api\Exceptions\ValidationException;
 use ITHub\Api\Models\RefreshToken;
 use ITHub\Api\Models\User;
 use ITHub\Api\Services\AuthService;
@@ -15,13 +14,11 @@ use ITHub\Api\Tests\Support\DatabaseTestCase;
 
 /**
  * Flujo completo de autenticación contra la base (SQLite en memoria):
- * login, lockout, rotación de refresh con detección de reuso, logout y
- * cambio de password. Es lo que más importa que no se rompa.
+ * login con Google (unico login), lockout, rotación de refresh con detección
+ * de reuso y logout. Es lo que más importa que no se rompa.
  */
 final class AuthServiceTest extends DatabaseTestCase
 {
-    private const PASSWORD = 'Password-Segura-1!';
-
     private AuthService $auth;
 
     protected function setUp(): void
@@ -30,9 +27,15 @@ final class AuthServiceTest extends DatabaseTestCase
         $this->auth = $this->container->get(AuthService::class);
     }
 
+    /**
+     * Abre una sesión con el login de Google (el único que existe) para el
+     * email dado. El dominio permitido se toma del propio email.
+     */
     private function loginOk(string $email): array
     {
-        return $this->auth->login($email, self::PASSWORD, $this->makeRequest(ip: '10.0.0.5'));
+        $dominio = substr($email, strpos($email, '@') + 1);
+        $this->habilitarGoogle(['email' => $email, 'hd' => $dominio], $dominio);
+        return $this->loginGoogle();
     }
 
     /** @return array{0:string,1:string} [errorCode, message] */
@@ -75,75 +78,6 @@ final class AuthServiceTest extends DatabaseTestCase
         self::assertNotNull($user->last_login);
         self::assertSame('10.0.0.5', $user->last_login_ip);
         self::assertSame(1, Capsule::table('auditoria')->where('user_id', $id)->where('accion', 'login')->count());
-    }
-
-    public function testElEmailNoDistingueMayusculasNiEspacios(): void
-    {
-        $this->crearUsuario(['email' => 'nico@test.local']);
-        $res = $this->auth->login('  Nico@Test.LOCAL ', self::PASSWORD, $this->makeRequest());
-        self::assertSame('nico@test.local', $res['user']->email);
-    }
-
-    public function testPasswordIncorrectaIncrementaIntentosYNoRevelaNada(): void
-    {
-        $id = $this->crearUsuario(['email' => 'nico@test.local']);
-
-        [$code, $msg] = $this->esperarAuthException(
-            fn () => $this->auth->login('nico@test.local', 'incorrecta', $this->makeRequest())
-        );
-
-        self::assertSame('INVALID_CREDENTIALS', $code);
-        self::assertSame(1, User::find($id)->failed_login_attempts);
-        self::assertSame(1, Capsule::table('auditoria')->where('accion', 'login_fallido')->where('user_id', $id)->count());
-
-        // Mismo mensaje para email inexistente: no se revela si existe la cuenta
-        [$code2, $msg2] = $this->esperarAuthException(
-            fn () => $this->auth->login('nadie@test.local', 'x', $this->makeRequest())
-        );
-        self::assertSame('INVALID_CREDENTIALS', $code2);
-        self::assertSame($msg, $msg2);
-
-        // Y la auditoría del email desconocido no guarda el email en claro
-        $fila = Capsule::table('auditoria')->where('accion', 'login_fallido')->whereNull('user_id')->first();
-        self::assertNotNull($fila);
-        self::assertStringNotContainsString('nadie@test.local', (string) $fila->campos_modificados);
-        self::assertStringContainsString('email_hash', (string) $fila->campos_modificados);
-    }
-
-    public function testCincoIntentosFallidosBloqueanLaCuentaAunConPasswordCorrecta(): void
-    {
-        $id = $this->crearUsuario(['email' => 'nico@test.local']);
-
-        for ($i = 0; $i < 5; $i++) {
-            $this->esperarAuthException(
-                fn () => $this->auth->login('nico@test.local', 'incorrecta', $this->makeRequest())
-            );
-        }
-
-        $user = User::find($id);
-        self::assertSame(5, $user->failed_login_attempts);
-        self::assertNotNull($user->locked_until);
-        self::assertTrue($user->isLocked());
-
-        [$code] = $this->esperarAuthException(fn () => $this->loginOk('nico@test.local'));
-        self::assertSame('ACCOUNT_LOCKED', $code);
-    }
-
-    public function testCuatroIntentosFallidosNoBloqueanYElLoginOkReseteaElContador(): void
-    {
-        $id = $this->crearUsuario(['email' => 'nico@test.local']);
-
-        for ($i = 0; $i < 4; $i++) {
-            $this->esperarAuthException(
-                fn () => $this->auth->login('nico@test.local', 'incorrecta', $this->makeRequest())
-            );
-        }
-        self::assertFalse(User::find($id)->isLocked());
-
-        $this->loginOk('nico@test.local');
-        $user = User::find($id);
-        self::assertSame(0, $user->failed_login_attempts);
-        self::assertNull($user->locked_until);
     }
 
     public function testElBloqueoVenceSolo(): void
@@ -293,77 +227,6 @@ final class AuthServiceTest extends DatabaseTestCase
     }
 
     // ------------------------------------------------------------
-    // Cambio de password
-    // ------------------------------------------------------------
-
-    public function testChangePasswordExigeLaActualSalvoCambioForzado(): void
-    {
-        $id = $this->crearUsuario(['email' => 'nico@test.local']);
-        $user = User::find($id);
-
-        [$code] = $this->esperarAuthException(
-            fn () => $this->auth->changePassword($user, 'incorrecta', 'Nueva-Password-9!', $this->makeRequest())
-        );
-        self::assertSame('INVALID_CURRENT_PASSWORD', $code);
-
-        // Con must_change_password no hace falta la actual
-        $forzadoId = $this->crearUsuario(['email' => 'nuevo@test.local', 'must_change_password' => 1]);
-        $forzado = User::find($forzadoId);
-        $this->auth->changePassword($forzado, null, 'Nueva-Password-9!', $this->makeRequest());
-
-        $forzado = User::find($forzadoId);
-        self::assertFalse($forzado->must_change_password);
-        self::assertTrue(password_verify('Nueva-Password-9!', $forzado->password_hash));
-    }
-
-    public function testChangePasswordRevocaLasSesionesYRechazaRepetirLaAnterior(): void
-    {
-        $id = $this->crearUsuario(['email' => 'nico@test.local']);
-        $this->loginOk('nico@test.local');
-        $this->loginOk('nico@test.local');
-        $user = User::find($id);
-
-        try {
-            $this->auth->changePassword($user, self::PASSWORD, self::PASSWORD, $this->makeRequest());
-            self::fail('no debe permitir reusar la misma password');
-        } catch (ValidationException $e) {
-            self::assertArrayHasKey('new_password', $e->getDetails());
-        }
-
-        $this->auth->changePassword($user, self::PASSWORD, 'Otra-Password-2024!', $this->makeRequest());
-
-        self::assertSame(0, RefreshToken::where('user_id', $id)->whereNull('revoked_at')->count(), 'fuerza relogin en todos los dispositivos');
-        self::assertSame(1, Capsule::table('auditoria')->where('user_id', $id)->where('accion', 'cambio_password')->count());
-
-        // La password nueva sirve para loguearse; la vieja no
-        $this->auth->login('nico@test.local', 'Otra-Password-2024!', $this->makeRequest());
-        [$code] = $this->esperarAuthException(fn () => $this->loginOk('nico@test.local'));
-        self::assertSame('INVALID_CREDENTIALS', $code);
-    }
-
-    public function testPoliticaDeComplejidadDePassword(): void
-    {
-        $casos = [
-            'corta' => 'Ab1!',
-            'sin mayuscula' => 'password-segura-1!',
-            'sin minuscula' => 'PASSWORD-SEGURA-1!',
-            'sin digito' => 'Password-Segura-!!',
-            'sin simbolo' => 'PasswordSegura123',
-        ];
-        foreach ($casos as $caso => $pwd) {
-            try {
-                $this->auth->validatePasswordStrength($pwd);
-                self::fail("Debería rechazar: {$caso}");
-            } catch (ValidationException) {
-                self::assertTrue(true);
-            }
-        }
-
-        $this->auth->validatePasswordStrength('Password-Segura-1!');
-        self::assertTrue(true, 'una password que cumple todo no lanza');
-    }
-
-    // ------------------------------------------------------------
     // Login con Google
     // ------------------------------------------------------------
 
@@ -420,7 +283,7 @@ final class AuthServiceTest extends DatabaseTestCase
         self::assertSame('GOOGLE_LOGIN_DISABLED', $code);
     }
 
-    public function testGoogleOkAbreLaMismaSesionQueElLoginConPassword(): void
+    public function testGoogleOkAbreSesionYReseteaElContadorDeIntentos(): void
     {
         $id = $this->crearUsuario(['email' => 'nico@intellihelp.tech', 'failed_login_attempts' => 3]);
         $this->habilitarGoogle([]);

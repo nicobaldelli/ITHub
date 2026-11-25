@@ -14,7 +14,6 @@ import { useAuth } from '@/hooks/useAuth';
  *
  * - Si todavía no se intentó hydrate: lo hace y muestra "Cargando…"
  * - Si no hay sesión válida: redirige a /login
- * - Si must_change_password: redirige a /cambiar-password
  * - Escucha 'auth:unauthorized' del interceptor del API client. Si HABÍA una
  *   sesión (expiró o fue revocada), NO desmonta la página: muestra un aviso y
  *   deja lo que el usuario estaba haciendo a la vista (por ejemplo un form
@@ -37,14 +36,11 @@ export function AppShell({ title, children }: { title?: string; children: React.
     if (!hydrated) {
       hydrate().then((u) => {
         if (!u) router.replace('/login');
-        else if (u.must_change_password) router.replace('/cambiar-password');
       });
     } else if (!isAuthenticated) {
       router.replace('/login');
-    } else if (user?.must_change_password) {
-      router.replace('/cambiar-password');
     }
-  }, [expired, hydrated, isAuthenticated, hydrate, router, user?.must_change_password]);
+  }, [expired, hydrated, isAuthenticated, hydrate, router]);
 
   useEffect(() => {
     function onUnauth() {
@@ -75,10 +71,6 @@ export function AppShell({ title, children }: { title?: string; children: React.
       </div>
     );
   }
-  if (user?.must_change_password) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-neutral-50">
       <Sidebar />

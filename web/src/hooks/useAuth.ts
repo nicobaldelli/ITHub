@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { api, apiErrorMessage, tryRefresh } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import type { ApiSuccess, LoginResponse, User } from '@/types/api';
@@ -11,26 +10,7 @@ export function useAuth() {
   const router = useRouter();
   const { user, accessToken, hydrated, setSession, clear, setHydrated, updateUser } = useAuthStore();
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      try {
-        const resp = await api.post<ApiSuccess<LoginResponse>>('/auth/login', { email, password });
-        const data = resp.data.data;
-        setSession({
-          user: data.user,
-          accessToken: data.access_token,
-          accessExpiresAt: data.access_expires_at,
-          csrfToken: data.csrf_token,
-        });
-        return data;
-      } catch (err) {
-        throw new Error(apiErrorMessage(err, 'No se pudo iniciar sesión'));
-      }
-    },
-    [setSession],
-  );
-
-  /** Login con el ID token que devuelve el botón de Google. Misma sesión que `login`. */
+  /** Login con el ID token que devuelve el botón de Google. Es el único login. */
   const loginGoogle = useCallback(
     async (credential: string) => {
       try {
@@ -50,14 +30,25 @@ export function useAuth() {
     [setSession],
   );
 
+  /**
+   * Cierra la sesión. Con ITHub la API devuelve `logout_url`: se sigue a
+   * ITHub, que cierra la sesión única en todas las apps y vuelve al ingreso.
+   */
   const logout = useCallback(async () => {
+    let salidaItHub: string | null = null;
     try {
-      await api.post('/auth/logout');
+      const resp = await api.post<ApiSuccess<{ logout_url?: string }> | ''>('/auth/logout');
+      const data = resp.data ? resp.data.data : undefined;
+      salidaItHub = data?.logout_url ?? null;
     } catch {
       // ignoramos: igual limpiamos local
     } finally {
       clear();
-      router.push('/login');
+      if (salidaItHub) {
+        window.location.assign(salidaItHub);
+      } else {
+        router.push('/login');
+      }
     }
   }, [clear, router]);
 
@@ -77,23 +68,6 @@ export function useAuth() {
     }
   }, [setHydrated]);
 
-  const changePassword = useCallback(
-    async (newPassword: string, currentPassword?: string) => {
-      try {
-        await api.post('/auth/change-password', {
-          new_password: newPassword,
-          current_password: currentPassword,
-        });
-        toast.success('Password actualizado. Volvé a iniciar sesión.');
-        clear();
-        router.push('/login');
-      } catch (err) {
-        throw new Error(apiErrorMessage(err, 'No se pudo cambiar la password'));
-      }
-    },
-    [clear, router],
-  );
-
   const refreshMe = useCallback(async () => {
     const resp = await api.get<ApiSuccess<User>>('/auth/me');
     updateUser(resp.data.data);
@@ -105,11 +79,9 @@ export function useAuth() {
     accessToken,
     hydrated,
     isAuthenticated: !!accessToken && !!user,
-    login,
     loginGoogle,
     logout,
     hydrate,
-    changePassword,
     refreshMe,
   };
 }

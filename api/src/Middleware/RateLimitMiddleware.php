@@ -24,8 +24,6 @@ final class RateLimitMiddleware implements MiddlewareInterface
     private const PROFILES_MAP = [
         'login' => 'login_per_email',
         'refresh' => 'refresh_per_ip',
-        'change_password' => 'change_password',
-        'reset_password' => 'reset_password',
         'import' => 'import',
         'general' => 'general_per_user',
     ];
@@ -97,8 +95,6 @@ final class RateLimitMiddleware implements MiddlewareInterface
                 "login:ip:{$ip}",
             ]),
             'refresh' => ["refresh:ip:{$ip}"],
-            'change_password' => ["chpwd:user:{$userId}"],
-            'reset_password' => ["reset:user:{$userId}"],
             'import' => ["import:user:{$userId}"],
             default => [
                 $userId !== 'anon' ? "gen:user:{$userId}" : "gen:ip:{$ip}",

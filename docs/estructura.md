@@ -150,8 +150,7 @@ ITHub/
         │   ├── layout.tsx          Root layout (Saira + AuthProvider)
         │   ├── globals.css
         │   ├── page.tsx            Landing/redirect
-        │   ├── login/
-        │   ├── cambiar-password/
+        │   ├── login/              Solo "Iniciar sesión con Google"
         │   ├── dashboard/
         │   ├── clientes/
         │   └── facturas/
